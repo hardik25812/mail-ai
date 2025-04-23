@@ -1,0 +1,245 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// This is your Prisma schema file for Mail AI
+// Designed to work with Supabase PostgreSQL database
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("POSTGRES_PRISMA_URL")
+}
+
+// User model (extends Supabase auth.users)
+model User {
+  id         String   @id @db.Uuid
+  email      String   @unique
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  settings         Settings?
+  workspace_users  WorkspaceUser[]
+  sender_profiles  SenderProfile[]
+
+  @@map("users")
+}
+
+// Workspace model
+model Workspace {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  name       String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  workspace_users   WorkspaceUser[]
+  inboxes           Inbox[]
+  campaigns         Campaign[]
+  sender_profiles   SenderProfile[]
+
+  @@map("workspaces")
+}
+
+// WorkspaceUser model (many-to-many relationship)
+model WorkspaceUser {
+  workspace_id String   @db.Uuid
+  user_id      String   @db.Uuid
+  role         String
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@id([workspace_id, user_id])
+  @@map("workspace_users")
+}
+
+// Inbox model
+model Inbox {
+  id             String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id   String    @db.Uuid
+  bison_inbox_id String
+  email_address  String
+  name           String
+  active         Boolean   @default(true)
+  last_synced_at DateTime? @db.Timestamptz(6)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime  @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  workspace      Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  emails         Email[]
+
+  @@unique([workspace_id, bison_inbox_id])
+  @@map("inboxes")
+}
+
+// Email model
+model Email {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  inbox_id     String    @db.Uuid
+  message_id   String
+  thread_id    String
+  subject      String
+  body         String
+  body_html    String?
+  sender       String
+  recipient    String
+  cc           String[]  @default([])
+  bcc          String[]  @default([])
+  status       String
+  intent       String?
+  lead_score   Int?
+  is_draft     Boolean   @default(false)
+  is_sent      Boolean   @default(false)
+  is_inbound   Boolean   @default(true)
+  received_at  DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  inbox        Inbox         @relation(fields: [inbox_id], references: [id], onDelete: Cascade)
+  ai_responses AIResponse[]
+
+  @@unique([inbox_id, message_id])
+  @@map("emails")
+}
+
+// AIResponse model
+model AIResponse {
+  id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  email_id         String    @db.Uuid
+  content          String
+  approved_by_user Boolean?
+  sent_at          DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime  @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  email            Email     @relation(fields: [email_id], references: [id], onDelete: Cascade)
+
+  @@map("ai_responses")
+}
+
+// Settings model
+model Settings {
+  user_id         String    @id @db.Uuid
+  tone            String?
+  signature       String?
+  auto_reply      Boolean   @default(false)
+  slack_url       String?
+  calendly_url    String?
+  timezone        String?
+  example_replies Json?     @default("[]")
+  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime  @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  user             User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("settings")
+}
+
+// Campaign model
+model Campaign {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  workspace_id String    @db.Uuid
+  name         String
+  description  String?
+  status       String
+  timezone     String?
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime  @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  workspace          Workspace          @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  campaign_steps     CampaignStep[]
+  campaign_recipients CampaignRecipient[]
+  campaign_stats     CampaignStat[]
+
+  @@map("campaigns")
+}
+
+// CampaignStep model
+model CampaignStep {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  campaign_id  String   @db.Uuid
+  step_number  Int
+  subject      String
+  body         String
+  delay_hours  Int      @default(24)
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  campaign     Campaign @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+
+  @@unique([campaign_id, step_number])
+  @@map("campaign_steps")
+}
+
+// CampaignRecipient model
+model CampaignRecipient {
+  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  campaign_id  String   @db.Uuid
+  email        String
+  name         String?
+  current_step Int?     @default(0)
+  status       String
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  campaign     Campaign @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+
+  @@unique([campaign_id, email])
+  @@map("campaign_recipients")
+}
+
+// CampaignStat model
+model CampaignStat {
+  id               String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  campaign_id      String   @db.Uuid
+  step_number      Int?
+  emails_sent      Int?     @default(0)
+  emails_delivered Int?     @default(0)
+  emails_opened    Int?     @default(0)
+  emails_clicked   Int?     @default(0)
+  emails_replied   Int?     @default(0)
+  emails_bounced   Int?     @default(0)
+  created_at       DateTime @default(now()) @db.Timestamptz(6)
+  updated_at       DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  campaign         Campaign @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+
+  @@unique([campaign_id, step_number])
+  @@map("campaign_stats")
+}
+
+// SenderProfile model
+model SenderProfile {
+  id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  user_id         String   @db.Uuid
+  workspace_id    String   @db.Uuid
+  name            String
+  email           String
+  email_signature String?
+  timezone        String?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  workspace       Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+
+  @@unique([workspace_id, email])
+  @@map("sender_profiles")
+}

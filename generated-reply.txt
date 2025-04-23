@@ -1,0 +1,21 @@
+Subject: Re: Question about Mail AI product features and pricing
+
+Dear Michael,
+
+Thank you for your interest in our Mail AI product. 
+
+To address your questions:
+
+1. Yes, Mail AI integrates seamlessly with both Gmail and Outlook.
+2. We leverage a combination of LSTM and BERT models for email analysis, ensuring optimum performance and accuracy.
+3. The monthly cost for a small team of 5 members is typically $100. However, we offer a 15% discount for annual subscriptions which can provide substantial savings.
+4. Yes, we offer a 14-day free trial period for you to explore the product and its features.
+
+I'd be more than happy to schedule a demo for you. Please use this link (https://calendly.com/yourcompany/demo) to pick a time that works best for you.
+
+If you have any other questions or need further assistance, feel free to reach out.
+
+Best regards,
+Sarah Thompson
+Customer Success Manager
++1 (555) 123-4567

@@ -1,0 +1,18 @@
+Hello Alex,
+
+Thank you for your interest in Mail AI and considering us for a potential partnership. I'm pleased to answer your questions.
+
+1. Yes, Mail AI does offer an API that can be integrated with custom CRM systems. Our API-first approach ensures seamless integration with various platforms, which includes CRM systems.
+2. We utilize a variety of AI models for sentiment analysis and customer intent detection, including but not limited to, Convolutional Neural Networks (CNN) and Long Short-Term Memory (LSTM) networks. Our models are trained on a large dataset ensuring robust and accurate results.
+3. Our platform supports over 30 languages with our multilingual AI models. These models effectively handle multilingual emails ensuring seamless communication across different language speakers.
+4. Yes, we do have an enterprise pricing tier for larger organizations. Our enterprise package includes premium features tailored to meet the needs of larger organizations.
+
+To further discuss potential integration paths, I would be happy to schedule a technical call next week as per your convenience. Please book a time slot that suits you through the following link: https://calendly.com/mail-ai/partnership-call
+
+If you have any more questions or need further information, please don't hesitate to ask.
+
+Best regards,
+Taylor Rivera
+Partnerships Lead at Mail AI
+Email: partnerships@mail-ai.com
+Phone: +1 (888) 123-4567

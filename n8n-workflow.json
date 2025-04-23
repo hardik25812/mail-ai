@@ -1,0 +1,180 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ai-generate-reply"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "query",
+        "query": "SELECT * FROM settings WHERE user_id = '{{ $json[\"user_id\"] }}';"
+      },
+      "name": "Fetch User Settings",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [400, 300]
+    },
+    {
+      "parameters": {
+        "resource": "database",
+        "operation": "query",
+        "query": "SELECT * FROM emails WHERE id = '{{ $json[\"email_id\"] }}';"
+      },
+      "name": "Fetch Email",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [400, 500]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{\n  prompt: `Reply to this email using a ${$node[\"Fetch User Settings\"].json[\"tone\"]} tone. Include this Calendly link if appropriate: ${$node[\"Fetch User Settings\"].json[\"calendly_url\"]}. Sign with: ${$node[\"Fetch User Settings\"].json[\"signature\"]}. EMAIL: ${$node[\"Fetch Email\"].json[\"body\"]}`\n}];"
+      },
+      "name": "Build Prompt",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [600, 400]
+    },
+    {
+      "parameters": {
+        "authentication": "headerAuth",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "method": "POST",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "options": {},
+        "bodyParametersJson": "{\n  \"model\": \"gpt-4\",\n  \"messages\": [\n    { \"role\": \"user\", \"content\": \"{{$node.Build Prompt.json[\\\"prompt\\\"]}}\" }\n  ]\n}"
+      },
+      "name": "OpenAI GPT-4",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [800, 400]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "reply",
+              "value": "={{ $json[\"choices\"][0][\"message\"][\"content\"] }}"
+            }
+          ]
+        }
+      },
+      "name": "Set Reply",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [1000, 400]
+    },
+    {
+      "parameters": {
+        "url": "https://your-api.vercel.app/api/save-ai-reply",
+        "method": "POST",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"email_id\": \"{{$json.email_id}}\",\n  \"user_id\": \"{{$json.user_id}}\",\n  \"reply\": \"{{$node.Set Reply.json.reply}}\"\n}"
+      },
+      "name": "Save Reply to Supabase",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1200, 400]
+    },
+    {
+      "parameters": {
+        "url": "={{ $node[\"Fetch User Settings\"].json[\"slack_url\"] }}",
+        "method": "POST",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "{\n  \"text\": \"New AI reply ready: {{$node.Set Reply.json.reply}}\"\n}"
+      },
+      "name": "Send Slack Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 1,
+      "position": [1400, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Fetch User Settings",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch User Settings": {
+      "main": [
+        [
+          {
+            "node": "Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Email": {
+      "main": [
+        [
+          {
+            "node": "Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "OpenAI GPT-4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI GPT-4": {
+      "main": [
+        [
+          {
+            "node": "Set Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Reply": {
+      "main": [
+        [
+          {
+            "node": "Save Reply to Supabase",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

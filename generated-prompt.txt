@@ -1,0 +1,23 @@
+Reply to this email using a professional and friendly tone. Include this Calendly link if the email is asking about scheduling or meeting times: https://calendly.com/yourcompany/demo. Mention our 15% discount for annual subscriptions when discussing pricing. Sign with: Best regards,
+Sarah Thompson
+Customer Success Manager
++1 (555) 123-4567 This is a high-priority lead based on company size.
+
+ORIGINAL EMAIL:
+From: Michael Johnson <michael.johnson@techcorp.com>
+Subject: Question about product features and pricing
+
+Hi there,
+
+I'm interested in your Mail AI product and had a few questions:
+
+1. Does it integrate with Gmail and Outlook?
+2. What AI models do you use for email analysis?
+3. How much does it cost per month for a small team of 5 people?
+4. Do you offer a trial period?
+
+Also, I'd like to schedule a demo if possible.
+
+Thanks,
+Michael Johnson
+Marketing Director, TechCorp

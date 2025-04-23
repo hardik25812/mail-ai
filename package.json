@@ -1,0 +1,47 @@
+{
+  "name": "mail-ai-backend",
+  "version": "1.0.0",
+  "description": "Supabase backend for an AI-powered inbox manager",
+  "main": "deploy.js",
+  "scripts": {
+    "worker:build": "tsc",
+    "worker:start": "node dist/workers/generate-ai-reply.js",
+    "worker:test": "node dist/workers/test-worker.js",
+    "deploy": "node deploy.js",
+    "start": "supabase start",
+    "stop": "supabase stop",
+    "reset": "supabase db reset",
+    "dev": "next dev",
+    "build": "next build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "email",
+    "ai",
+    "supabase",
+    "inbox",
+    "management"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^6.6.0",
+    "@supabase/supabase-js": "^2.49.4",
+    "axios": "^1.8.4",
+    "commander": "^13.1.0",
+    "dotenv": "^16.5.0",
+    "next": "^15.3.1",
+    "node-fetch": "^2.7.0",
+    "prisma": "^6.6.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "@types/react": "19.1.2",
+    "supabase": "^1.226.4",
+    "typescript": "^5.8.3"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

@@ -1,0 +1,7 @@
+version: 2
+authtoken: 
+tunnels:
+  webhook:
+    proto: http
+    addr: 3002
+    inspect: false

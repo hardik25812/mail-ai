@@ -1,0 +1,486 @@
+// Supabase Edge Function for handling campaign endpoints
+import '../_shared/types.ts'
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.21.0'
+import { corsHeaders } from '../_shared/cors.ts'
+import { 
+  Campaign, 
+  CampaignStep, 
+  CampaignStats,
+  RecordWithStatus, 
+  WorkspaceUser,
+  OrderOptions,
+  User,
+  handleError, 
+  createStringIndexedObject
+} from '../_shared/types-helpers.ts'
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_KEY') || ''
+
+// Create a Supabase client with the service key
+const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+serve(async (req: Request): Promise<Response> => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const url = new URL(req.url)
+    const path = url.pathname.split('/').filter(Boolean)
+
+    // Get the JWT token from the request
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const token = authHeader.replace('Bearer ', '')
+
+    // Verify the JWT token and get the user
+    const { data, error: authError } = await supabase.auth.getUser(token)
+    if (authError || !data || !data.user) {
+      return new Response(
+        JSON.stringify({ success: false, error: authError?.message || 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+    
+    // Extract the authenticated user from response data
+    let userId = data.user?.id
+    
+    // Fallback authentication is not needed since we already have userId
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'User ID not found' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Handle different routes
+    if (path[1] === 'campaigns') {
+      // GET /campaigns - List campaigns
+      if (req.method === 'GET' && !path[2]) {
+        // Get workspace IDs the user has access to
+        const { data: workspaces, error: workspaceError } = await supabase
+          .from('workspace_users')
+          .select('workspace_id')
+          .eq('user_id', userId)
+
+        if (workspaceError) {
+          return new Response(
+            JSON.stringify({ success: false, error: workspaceError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        const workspaceIds = workspaces.map((w: WorkspaceUser) => w.workspace_id)
+
+        // Set default pagination values
+        const page = parseInt(url.searchParams.get('page') || '1')
+        const perPage = parseInt(url.searchParams.get('per_page') || '20')
+        const offset = (page - 1) * perPage
+
+        // Get campaigns for those workspaces 
+        const queryOptions = { count: 'exact' as const };
+        const { data: campaigns, error: campaignError, count } = await supabase
+          .from('campaigns')
+          .select(`
+            *,
+            workspace:workspaces (id, name),
+            steps:campaign_steps (id, step_number)
+          `, queryOptions)
+          .in('workspace_id', workspaceIds)
+          .order('created_at', { ascending: false })
+          .limit(perPage)
+          .offset(offset)
+
+        if (campaignError) {
+          return new Response(
+            JSON.stringify({ success: false, error: campaignError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            data: campaigns,
+            pagination: {
+              total: count,
+              page,
+              per_page: perPage,
+              total_pages: Math.ceil((count || 0) / perPage)
+            }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // POST /campaigns - Create a new campaign
+      if (req.method === 'POST' && !path[2]) {
+        const { workspace_id, name, description, timezone } = await req.json()
+
+        // Validate required fields
+        if (!workspace_id || !name) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'workspace_id and name are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        if (workspace_id) {
+          // Check if the user has access to the workspace
+          const { data: workspace, error: workspaceError } = await supabase
+            .from('workspace_users')
+            .select('*')
+            .eq('workspace_id', workspace_id)
+            .eq('user_id', userId)
+            .single()
+
+          if (workspaceError || !workspace) {
+            return new Response(
+              JSON.stringify({ success: false, error: 'You do not have access to this workspace' }),
+              { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            )
+          }
+        }
+
+        // Create the campaign
+        const { data: campaign, error: campaignError } = await supabase
+          .from('campaigns')
+          .insert({
+            workspace_id,
+            name,
+            description,
+            timezone: timezone || 'UTC',
+            status: 'draft'
+          })
+          .select()
+          .single()
+
+        if (campaignError) {
+          return new Response(
+            JSON.stringify({ success: false, error: campaignError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, data: campaign }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // GET /campaigns/:id - Get a single campaign
+      if (req.method === 'GET' && path[2] && !path[3]) {
+        const campaignId = path[2]
+
+        // Get the campaign
+        const { data: campaign, error: campaignError } = await supabase
+          .from('campaigns')
+          .select(`
+            *,
+            workspace:workspaces(*)
+          `)
+          .eq('id', campaignId)
+          .single()
+
+        if (campaignError) {
+          return new Response(
+            JSON.stringify({ success: false, error: campaignError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Check if user has access to the campaign's workspace
+        const { data: workspace, error: workspaceError } = await supabase
+          .from('workspace_users')
+          .select('*')
+          .eq('workspace_id', campaign.workspace_id)
+          .eq('user_id', userId)
+          .single()
+
+        if (workspaceError || !workspace) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'You do not have access to this campaign' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, data: campaign }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // PUT /campaigns/:id - Update a campaign
+      if (req.method === 'PUT' && path[2] && !path[3]) {
+        const campaignId = path[2]
+        const updates = await req.json()
+
+        // Get the campaign to check access
+        const { data: campaign, error: campaignError } = await supabase
+          .from('campaigns')
+          .select('*')
+          .eq('id', campaignId)
+          .single()
+
+        if (campaignError) {
+          return new Response(
+            JSON.stringify({ success: false, error: campaignError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Check if user has access to the campaign's workspace
+        const { data: workspace, error: workspaceError } = await supabase
+          .from('workspace_users')
+          .select('*')
+          .eq('workspace_id', campaign.workspace_id)
+          .eq('user_id', userId)
+          .single()
+
+        if (workspaceError || !workspace) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'You do not have access to this campaign' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Validate updates
+        const allowedFields = ['name', 'description', 'status', 'timezone']
+        const sanitizedUpdates = Object.keys(updates)
+          .filter(key => allowedFields.includes(key))
+          .reduce<Record<string, any>>((obj, key) => {
+            obj[key] = updates[key]
+            return obj
+          }, {})
+
+        // Update the campaign
+        const { data: updatedCampaign, error: updateError } = await supabase
+          .from('campaigns')
+          .update({
+            ...sanitizedUpdates,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', campaignId)
+          .select()
+          .single()
+
+        if (updateError) {
+          return new Response(
+            JSON.stringify({ success: false, error: updateError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        return new Response(
+          JSON.stringify({ success: true, data: updatedCampaign }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+
+      // GET /campaigns/:id/stats - Get campaign statistics
+      if (req.method === 'GET' && path[2] && path[3] === 'stats') {
+        const campaignId = path[2]
+
+        // Get the campaign to check access
+        const { data: campaign, error: campaignError } = await supabase
+          .from('campaigns')
+          .select('*')
+          .eq('id', campaignId)
+          .single()
+
+        if (campaignError) {
+          return new Response(
+            JSON.stringify({ success: false, error: campaignError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Check if user has access to the campaign's workspace
+        const { data: workspace, error: workspaceError } = await supabase
+          .from('workspace_users')
+          .select('*')
+          .eq('workspace_id', campaign.workspace_id)
+          .eq('user_id', userId)
+          .single()
+
+        if (workspaceError || !workspace) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'You do not have access to this campaign' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Get campaign steps
+        const { data: steps, error: stepsError } = await supabase
+          .from('campaign_steps')
+          .select('*')
+          .eq('campaign_id', campaignId)
+          .order('step_number', { ascending: true } as OrderOptions)
+
+        if (stepsError) {
+          return new Response(
+            JSON.stringify({ success: false, error: stepsError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Get campaign stats
+        const { data: stats, error: statsError } = await supabase
+          .from('campaign_stats')
+          .select('*')
+          .eq('campaign_id', campaignId)
+
+        if (statsError) {
+          return new Response(
+            JSON.stringify({ success: false, error: statsError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Get recipient stats
+        const { data: recipients, error: recipientsError } = await supabase
+          .rpc('get_recipient_stats_by_campaign', {
+            campaign_id: campaignId
+          })
+
+        if (recipientsError) {
+          return new Response(
+    return new Response(
+      JSON.stringify({ success: false, error: campaignError.message }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+
+        // Check if user has access to the campaign's workspace
+        const { data: workspace, error: workspaceError } = await supabase
+          .from('workspace_users')
+          .select('*')
+          .eq('workspace_id', campaign.workspace_id)
+          .eq('user_id', userId)
+          .single()
+
+        if (workspaceError || !workspace) {
+          return new Response(
+            JSON.stringify({ success: false, error: 'You do not have access to this campaign' }),
+            { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Get campaign steps
+        const { data: steps, error: stepsError } = await supabase
+          .from('campaign_steps')
+          .select('*')
+          .eq('campaign_id', campaignId)
+          .order('step_number', { ascending: true })
+
+        if (stepsError) {
+          return new Response(
+            JSON.stringify({ success: false, error: stepsError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Get campaign stats
+        const { data: stats, error: statsError } = await supabase
+          .from('campaign_stats')
+          .select('*')
+          .eq('campaign_id', campaignId)
+
+        if (statsError) {
+          return new Response(
+            JSON.stringify({ success: false, error: statsError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Get recipient stats
+        const { data: recipients, error: recipientsError } = await supabase
+          .rpc('get_recipient_stats_by_campaign', {
+            campaign_id: campaignId
+          })
+
+        if (recipientsError) {
+          return new Response(
+            JSON.stringify({ success: false, error: recipientsError.message }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          )
+        }
+
+        // Build campaign stats with proper typing
+        const statsByCampaign: Record<string, {
+          total_sent: number;
+          opened: number;
+          clicked: number;
+          replied: number;
+          bounced: number;
+        }> = createStringIndexedObject<{
+          total_sent: number;
+          opened: number;
+          clicked: number;
+          replied: number;
+          bounced: number;
+        }>()
+
+        // Calculate overall stats
+        const overallStats = {
+          total_recipients: 0,
+          active: 0,
+          completed: 0,
+          unsubscribed: 0,
+          pending: 0
+        }
+
+        recipients.forEach((r: RecordWithStatus) => {
+          overallStats.total_recipients += r.count || 0
+          // Use safe index access with type checking
+          if (r.status && r.status in overallStats) {
+            const statusKey = r.status as keyof typeof overallStats;
+            overallStats[statusKey] = r.count || 0;
+          }
+        })
+// Process step stats with proper typing
+function processCampaignSteps(campaign: Campaign, steps: CampaignStep[]): Record<string, {
+  step_id: string;
+  subject: string;
+  sequence: number;
+  sent: number;
+  opened: number;
+  clicked: number;
+  replied: number;
+}> {
+  interface StepStats {
+    step_id: string;
+    subject: string;
+    sequence: number;
+    sent: number;
+    opened: number;
+    clicked: number;
+    replied: number;
+  }
+  
+  const stepsStats = createStringIndexedObject<StepStats>()
+  
+  steps.forEach((step: CampaignStep) => {
+    const stepStats: StepStats = {
+      step_id: step.id,
+      subject: step.subject,
+      sequence: step.sequence_number,
+      sent: 0,
+      opened: 0,
+      clicked: 0,
+      replied: 0,
+    }
+    stepsStats[step.id] = stepStats
+  })
+  
+  return stepsStats
+}
