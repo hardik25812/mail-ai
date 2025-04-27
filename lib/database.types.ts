@@ -515,6 +515,61 @@ export interface Database {
           }
         ]
       }
+      ai_reply_jobs: {
+        Row: {
+          id: string
+          email_id: string
+          user_id: string
+          status: string
+          attempts: number
+          last_error: string | null
+          campaign_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          email_id: string
+          user_id: string
+          status?: string
+          attempts?: number
+          last_error?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          email_id?: string
+          user_id?: string
+          status?: string
+          attempts?: number
+          last_error?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_reply_jobs_email_id_fkey"
+            columns: ["email_id"]
+            referencedRelation: "emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_reply_jobs_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_reply_jobs_campaign_id_fkey"
+            columns: ["campaign_id"]
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {}
     Functions: {}

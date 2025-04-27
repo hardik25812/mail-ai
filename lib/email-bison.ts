@@ -22,6 +22,15 @@ export interface SendReplyOptions {
   bccAddresses?: string[];
 }
 
+export interface SendEmailOptions {
+  to: string;
+  subject: string;
+  body: string;
+  inboxId: string;
+  cc?: string[];
+  bcc?: string[];
+}
+
 export class EmailBisonClient {
   private config: EmailBisonConfig;
   
@@ -34,6 +43,8 @@ export class EmailBisonClient {
     if (!this.config.apiKey) {
       throw new Error('EMAIL_BISON_API_KEY is required');
     }
+    
+    logger.info('EmailBisonClient initialized with API URL: ' + this.config.apiUrl);
   }
   
   /**
@@ -111,6 +122,53 @@ export class EmailBisonClient {
       }
       
       throw new Error(`Failed to fetch email: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Send a direct email via Email Bison API
+   * This method follows the example format provided in the requirements
+   */
+  async sendEmail(options: SendEmailOptions): Promise<any> {
+    const { to, subject, body, inboxId, cc, bcc } = options;
+    
+    try {
+      logger.info(`Sending email to ${to} from inbox ${inboxId}`);
+      
+      const payload: Record<string, any> = {
+        to,
+        subject,
+        body,
+        inbox_id: inboxId,
+      };
+      
+      // Add optional fields if provided
+      if (cc && cc.length > 0) payload.cc = cc;
+      if (bcc && bcc.length > 0) payload.bcc = bcc;
+      
+      const response = await axios.post(
+        `${this.config.apiUrl}/send`,
+        payload,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.config.apiKey}`,
+          },
+        }
+      );
+      
+      logger.info(`Email sent successfully to ${to}`, { messageId: response.data.message_id });
+      
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Error sending email to ${to}`, { error });
+      
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        throw new Error(`Email Bison API error (${status}): ${data.error || data.message || 'Unknown error'}`);
+      }
+      
+      throw new Error(`Failed to send email: ${error.message}`);
     }
   }
 }

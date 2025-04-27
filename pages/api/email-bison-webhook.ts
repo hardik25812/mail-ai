@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 // Configure webhook logging
 const ENABLE_FILE_LOGGING = true;
@@ -91,38 +92,61 @@ export default async function handler(
     return res.status(405).json(response);
   }
 
-  // Validate webhook secret to ensure requests are coming from Email Bison
-  const webhookSecret = req.headers['x-webhook-secret'] || req.headers['x-api-key'];
-  // In production, only use environment variable - never hardcode secrets
-  const configuredSecret = process.env.EMAIL_BISON_WEBHOOK_SECRET || 'YOUR_WEBHOOK_SECRET_HERE';
-
-  logWebhook('auth-check', {
-    receivedSecret: webhookSecret ? '(secret provided)' : '(no secret)',
-    configuredSecret: configuredSecret ? '(secret configured)' : '(no secret configured)',
-    match: webhookSecret === configuredSecret,
-    secretFromEnv: Boolean(process.env.EMAIL_BISON_WEBHOOK_SECRET),
-    hardcodedSecretUsed: !process.env.EMAIL_BISON_WEBHOOK_SECRET
-  });
-
-  // IMPORTANT: For production, remove this condition and use proper secret validation
+  // Verify webhook signature to ensure requests are coming from Email Bison
+  const bisonSignature = req.headers['x-bison-signature'] as string;
+  const webhookSecret = process.env.BISON_WEBHOOK_SECRET || process.env.EMAIL_BISON_WEBHOOK_SECRET || '';
   const isDevMode = process.env.NODE_ENV === 'development';
   
-  if (!isDevMode && (!webhookSecret || webhookSecret !== configuredSecret)) {
-    const response = { 
-      success: false, 
-      message: 'Unauthorized: Invalid webhook secret',
-      error: 'Authentication failed - webhook secret mismatch'
-    };
-    logWebhook('error-auth', response);
-    return res.status(401).json(response);
+  // Function to verify webhook signature using HMAC
+  function verifyWebhookSignature(payload: any, signature: string, secret: string): boolean {
+    try {
+      // Create HMAC using the shared secret
+      const hmac = crypto.createHmac('sha256', secret);
+      // Update HMAC with the stringified payload
+      hmac.update(JSON.stringify(payload));
+      // Get the digest in hex format
+      const calculatedSignature = hmac.digest('hex');
+      // Compare the calculated signature with the one provided in the request
+      return crypto.timingSafeEqual(
+        Buffer.from(calculatedSignature, 'hex'),
+        Buffer.from(signature, 'hex')
+      );
+    } catch (error) {
+      console.error('Error verifying signature:', error);
+      return false;
+    }
   }
   
-  // For development testing, log but allow through
-  if (isDevMode && webhookSecret !== configuredSecret) {
-    console.warn('⚠️ WARNING: Webhook secret mismatch but allowing access in development mode');
+  // Log authentication check details (without exposing secrets)
+  logWebhook('auth-check', {
+    receivedSignature: bisonSignature ? '(signature provided)' : '(no signature)',
+    configuredSecret: webhookSecret ? '(secret configured)' : '(no secret configured)',
+    secretFromEnv: Boolean(webhookSecret),
+  });
+  
+  // Verify the signature in production mode
+  if (!isDevMode && webhookSecret) {
+    // If signature is missing or invalid, return 401 Unauthorized
+    if (!bisonSignature || !verifyWebhookSignature(req.body, bisonSignature, webhookSecret)) {
+      const response = { 
+        success: false, 
+        message: 'Unauthorized: Invalid webhook signature',
+        error: 'Authentication failed - signature verification failed'
+      };
+      logWebhook('error-auth', response);
+      return res.status(401).json(response);
+    }
+    
+    // Log successful verification
+    logWebhook('auth-success', {
+      message: 'Webhook signature verified successfully'
+    });
+  } else if (isDevMode) {
+    // For development testing, log but allow through
+    console.warn('⚠️ WARNING: Running in development mode, bypassing signature verification');
     logWebhook('dev-auth-bypass', {
       message: 'Bypassing auth in development mode',
-      providedSecret: webhookSecret ? webhookSecret.substring(0, 8) + '...' : '(none)'
+      signatureProvided: Boolean(bisonSignature)
     });
   }
 

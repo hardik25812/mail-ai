@@ -45,63 +45,54 @@ export function buildReplyPrompt(options: PromptOptions): string {
   let prompt = `
 === EMAIL REPLY GENERATION SYSTEM ===
 
-You are an expert email communication assistant. Your task is to draft a professional and appropriate response to the email below.
+You are an AI assistant helping respond to incoming customer emails.
 
-=== INSTRUCTIONS ===
+=== ANALYSIS INSTRUCTIONS ===
 
-1. TONE & STYLE:
-   - Use a ${settings.tone || 'professional'} tone
-   - Be clear, concise, and respectful
-   - Maintain proper email etiquette
-   - Address the sender by name when appropriate
-   - Use business-appropriate language
+First, analyze the customer's email carefully and determine:
+- What are they asking about? (pricing, demo, support, etc.)
+- How urgent is it?
+- What tone should be used in the reply? (formal, friendly, apologetic)
 
-2. CONTENT GUIDELINES:
-   - Thoroughly address ALL questions or points raised in the original email
-   - Provide specific, relevant information (avoid vague responses)
-   - If you can't answer a specific question, acknowledge it and offer an alternative or next step
-   - Maintain a positive, solution-oriented approach
-   - Do NOT make up information you don't have
+=== RESPONSE INSTRUCTIONS ===
 
-3. STRUCTURE:
-   - Begin with an appropriate greeting using the sender's name when possible
-   - Organize your response in a logical manner
-   - Use paragraphs to separate different topics
-   - Use bullet points or numbered lists for multiple items when appropriate
-   - End with an appropriate closing
+Then, write a professional, helpful reply that:
+- Directly answers the customer's question
+- Offers additional help if needed
+- Uses a ${settings.tone || 'professional'} tone overall, but adjust based on your analysis
+- Addresses the sender by name when appropriate
+- Organizes information logically with paragraphs for different topics
+- Uses bullet points or numbered lists for multiple items when appropriate
 `;
 
   // Add Calendly if available
   if (settings.calendly_url) {
-    prompt += `
-4. SCHEDULING ASSISTANCE:
-   - If the sender is requesting a meeting, call, or appointment, offer this Calendly link: ${settings.calendly_url}
-   - Only include this link if relevant to their request
+    prompt += `- Includes this Calendly link for booking a call (if appropriate): ${settings.calendly_url}
 `;
   }
 
   // Add custom instructions if configured by the user
   if (settings.custom_instructions) {
     prompt += `
-5. SPECIAL INSTRUCTIONS:
-   ${settings.custom_instructions}
+=== CUSTOM INSTRUCTIONS ===
+${settings.custom_instructions}
 `;
   }
   
   // Add signature instruction
   if (settings.signature) {
     prompt += `
-6. SIGNATURE:
-   - End the email with this exact signature:
-   ${settings.signature}
+=== SIGNATURE ===
+End with this exact signature:
+${settings.signature}
 `;
   }
   
   // Add additional contextual instructions if provided
   if (additionalInstructions) {
     prompt += `
-7. CONTEXTUAL NOTES:
-   ${additionalInstructions}
+=== CONTEXTUAL NOTES ===
+${additionalInstructions}
 `;
   }
 
@@ -109,17 +100,12 @@ You are an expert email communication assistant. Your task is to draft a profess
   prompt += `
 === EMAIL CONTEXT ===
 
-SENDER: ${email.sender}
-RECIPIENT: ${email.recipient}
-SUBJECT: ${email.subject}
-
-=== ORIGINAL EMAIL CONTENT ===
-
-${email.body}
+Subject: ${email.subject}
+Body: ${email.body}
 
 === RESPONSE ===
 
-Draft a reply addressing the above email based on the instructions provided. Write only the email body, without including your reasoning or explanations. Do not prefix with "Dear" or "Hello" - just start with the appropriate greeting.`;
+Write your response below. Include only the email content, not your analysis. Start with an appropriate greeting and end with the signature if provided.`;
   
   return prompt;
 }

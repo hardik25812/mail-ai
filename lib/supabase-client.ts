@@ -264,4 +264,62 @@ export class SupabaseClient {
       throw error;
     }
   }
+  
+  /**
+   * Get an inbox by ID
+   */
+  async getInbox(inboxId: string) {
+    try {
+      logger.info(`Fetching inbox ${inboxId}`);
+      
+      const { data, error } = await this.client
+        .from('inboxes')
+        .select('*')
+        .eq('id', inboxId)
+        .single();
+      
+      if (error) {
+        logger.error(`Error fetching inbox ${inboxId}`, { error });
+        throw new Error(`Failed to fetch inbox: ${error.message}`);
+      }
+      
+      if (!data) {
+        logger.error(`Inbox ${inboxId} not found`);
+        throw new Error(`Inbox ${inboxId} not found`);
+      }
+      
+      logger.info(`Fetched inbox ${inboxId}`);
+      return data;
+    } catch (error) {
+      logger.error(`Error in getInbox for ${inboxId}`, { error });
+      throw error;
+    }
+  }
+  
+  /**
+   * Update email status
+   */
+  async updateEmailStatus(emailId: string, status: string) {
+    try {
+      logger.info(`Updating email ${emailId} status to ${status}`);
+      
+      const { error } = await this.client
+        .from('emails')
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', emailId);
+      
+      if (error) {
+        logger.error(`Error updating email ${emailId} status`, { error });
+        throw new Error(`Failed to update email status: ${error.message}`);
+      }
+      
+      logger.info(`Updated email ${emailId} status to ${status}`);
+    } catch (error) {
+      logger.error(`Error in updateEmailStatus for ${emailId}`, { error });
+      throw error;
+    }
+  }
 }
