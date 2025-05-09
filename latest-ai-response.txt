@@ -1,0 +1,44 @@
+Latest AI Response:
+===================
+ID: 64ccbf7e-48d3-467d-ad7d-5ef5d7812c45
+Email ID: b23c2f98-d491-45eb-88e5-817de980cd1d
+User ID: 023bc166-f045-4435-a724-5b812f54a2bf
+Created: 2025-04-27T18:22:28.374+00:00
+
+Content:
+--------
+Hi Test User,
+
+Thank you for your interest in our services. We provide a range of pricing plans to cater to different needs, and they come with various features. Here's a brief overview:
+
+1. Basic Plan: This is our entry-level plan, ideal for individuals or small teams.
+2. Professional Plan: This is suitable for larger teams that require more advanced features.
+3. Enterprise Plan: This is a customizable plan designed for organizations with specific needs.
+
+Each plan comes with a set of features, which vary based on the pricing tier. For a complete breakdown of the features associated with each plan, I recommend visiting our website's pricing page.
+
+As for trial periods, yes, we do offer a 14-day free trial for new users. This gives you full access to all the features of our Professional Plan. You can sign up for the trial on our website.
+
+I hope this information helps. If you have any further questions, please don't hesitate to ask.
+
+Best regards,
+
+Test User
+Mail AI Backend
+
+Original Email:
+==============
+Subject: Test Email for Mail AI System
+From: test.user@example.com
+To: test-inbox@example.com
+
+Body:
+-----
+Hello,
+
+I recently came across your service and I'm interested in learning more about how it works. Could you please provide some information about your pricing plans and features?
+
+Also, do you offer any trial periods for new users?
+
+Thanks,
+Test User

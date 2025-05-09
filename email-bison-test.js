@@ -3,79 +3,48 @@ require('dotenv').config({ path: '.env.local' });
 const axios = require('axios');
 const crypto = require('crypto');
 
-// Get webhook secret from environment variables
-const webhookSecret = process.env.EMAIL_BISON_WEBHOOK_SECRET;
-if (!webhookSecret) {
-  console.error('Error: EMAIL_BISON_WEBHOOK_SECRET is not set in .env.local');
-  process.exit(1);
-}
+// Webhook endpoint (local development URL)
+const webhookUrl = 'http://localhost:3000/api/bison/webhooks';
 
-// Webhook endpoint (local development server)
-const webhookUrl = 'http://localhost:3002/api/email-bison-webhook';
+console.log(`Testing webhook at: ${webhookUrl}`);
 
-// Sample Email Bison webhook payload for a new incoming email
+// Sample Email Bison webhook payload using the new LEAD_REPLIED format
 const mockEmailPayload = {
-  event: 'email.received',
-  data: {
-    email: {
-      id: 'test-email-' + Date.now(),
-      thread_id: 'test-thread-' + Date.now(),
-      inbox_id: 'bison-inbox-123',
-      subject: 'Request for Custom Integration and Enterprise Pricing',
-      from: {
-        email: 'james.wilson@enterprise-corp.com',
-        name: 'James Wilson'
-      },
-      to: [
-        {
-          email: 'partnerships@mail-ai.com',
-          name: 'Partnerships'
-        }
-      ],
-      received_at: new Date().toISOString(),
-      text_body: `Hello Mail AI Team,
-
-I hope this message finds you well. I'm James Wilson, the CTO at Enterprise Corp.
-
-We're looking to implement an AI-powered email management solution across our organization and your Mail AI product has caught our attention. After reviewing your website, I have a few questions:
-
-1. Does your product offer any custom integration options with our internal ticketing system?
-2. We have specific compliance requirements for data handling. Can you provide details on your data security and compliance certifications?
-3. What is your enterprise pricing structure for approximately 500 users?
-4. Do you provide dedicated support and training during implementation?
-
-We would also like to schedule a demo with your technical team next week to discuss the specifics of our requirements.
-
-Looking forward to your response.
-
-Best regards,
-James Wilson
-Chief Technology Officer
-Enterprise Corp
-Phone: +1 (212) 555-9876`,
-      html_body: `<p>Hello Mail AI Team,</p>
-<p>I hope this message finds you well. I'm James Wilson, the CTO at Enterprise Corp.</p>
-<p>We're looking to implement an AI-powered email management solution across our organization and your Mail AI product has caught our attention. After reviewing your website, I have a few questions:</p>
-<ol>
-  <li>Does your product offer any custom integration options with our internal ticketing system?</li>
-  <li>We have specific compliance requirements for data handling. Can you provide details on your data security and compliance certifications?</li>
-  <li>What is your enterprise pricing structure for approximately 500 users?</li>
-  <li>Do you provide dedicated support and training during implementation?</li>
-</ol>
-<p>We would also like to schedule a demo with your technical team next week to discuss the specifics of our requirements.</p>
-<p>Looking forward to your response.</p>
-<p>Best regards,<br>
-James Wilson<br>
-Chief Technology Officer<br>
-Enterprise Corp<br>
-Phone: +1 (212) 555-9876</p>`,
-      attachments: []
-    },
-    workspace: {
-      id: 'test-workspace-123'
-    }
+  "event": {
+    "type": "LEAD_REPLIED",
+    "name": "Lead Replied",
+    "workspace_id": 1,
+    "workspace_name": "Test Team"
   },
-  timestamp: new Date().toISOString()
+  "data": {
+    "reply": {
+      "id": 2,
+      "uuid": "test-email-" + Date.now(),
+      "email_subject": "Re: Test Subject",
+      "interested": false,
+      "automated_reply": false,
+      "html_body": "<div dir=\"ltr\">I'm very interested in learning more about your product.</div>",
+      "text_body": "I'm very interested in learning more about your product.",
+      "from_name": "Test User",
+      "from_email_address": "test@example.com",
+      "primary_to_email_address": "inbox@mail-ai.com",
+      "date_received": new Date().toISOString()
+    },
+    "lead": {
+      "email": "test@example.com",
+      "first_name": "Test",
+      "last_name": "User",
+      "company": "Test Company"
+    },
+    "campaign": {
+      "id": 1,
+      "name": "Test Campaign"
+    },
+    "sender_email": {
+      "email": "inbox@mail-ai.com",
+      "status": "connected"
+    }
+  }
 };
 
 // Function to create HMAC signature for payload
@@ -89,15 +58,13 @@ function createHmacSignature(payload, secret) {
 async function sendWebhookRequest() {
   try {
     console.log('Sending test webhook request to Email Bison webhook endpoint...');
+    console.log('Payload preview:', JSON.stringify(mockEmailPayload, null, 2).substring(0, 500) + '...');
     
-    // Create HMAC signature for payload
-    const signature = createHmacSignature(mockEmailPayload, webhookSecret);
-    
-    // Make the API call
+    // Make the API call - no signature required for testing
     const response = await axios.post(webhookUrl, mockEmailPayload, {
       headers: {
         'Content-Type': 'application/json',
-        'X-Email-Bison-Signature': signature
+        'Accept': 'application/json'
       }
     });
     

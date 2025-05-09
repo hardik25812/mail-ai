@@ -31,20 +31,73 @@ export interface SendEmailOptions {
   bcc?: string[];
 }
 
+export interface EmailBisonInbox {
+  id: string;
+  name: string;
+  email: string;
+  provider: string;
+  connected: boolean;
+  lastSyncedAt: string;
+}
+
+export interface EmailBisonAnalytics {
+  emails: {
+    total: number;
+    received: number;
+    sent: number;
+    auto_replied: number;
+    growth_percentage: number;
+  };
+  response_time: {
+    average_minutes: number;
+    improvement_percentage: number;
+  };
+  meetings: {
+    booked: number;
+    completed: number;
+    cancelled: number;
+    growth_percentage: number;
+  };
+}
+
+export interface EmailData {
+  message_id: string;
+  thread_id: string;
+  subject: string;
+  body: string;
+  sender: string;
+  recipient?: string;
+  received_at?: string;
+}
+
 export class EmailBisonClient {
   private config: EmailBisonConfig;
   
   constructor(config: Partial<EmailBisonConfig> = {}) {
     this.config = {
-      apiKey: process.env.EMAIL_BISON_API_KEY || '',
-      apiUrl: process.env.EMAIL_BISON_API_URL || 'https://api.emailbison.com/v1',
+      apiKey: config.apiKey || process.env.EMAIL_BISON_API_KEY || '',
+      apiUrl: config.apiUrl || process.env.EMAIL_BISON_API_URL || 'https://api.emailbison.com/v1',
     };
     
     if (!this.config.apiKey) {
-      throw new Error('EMAIL_BISON_API_KEY is required');
+      logger.warn('No EmailBison API Key provided. Some operations will fail.');
     }
     
     logger.info('EmailBisonClient initialized with API URL: ' + this.config.apiUrl);
+  }
+  
+  /**
+   * Get the API URL
+   */
+  getApiUrl(): string {
+    return this.config.apiUrl;
+  }
+  
+  /**
+   * Get the API key
+   */
+  getApiKey(): string {
+    return this.config.apiKey;
   }
   
   /**
@@ -169,6 +222,108 @@ export class EmailBisonClient {
       }
       
       throw new Error(`Failed to send email: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Get connected inboxes from Email Bison
+   */
+  async getConnectedInboxes(): Promise<EmailBisonInbox[]> {
+    try {
+      logger.info('Fetching connected inboxes from Email Bison');
+      
+      const response = await axios.get(
+        `${this.config.apiUrl}/inboxes`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.config.apiKey}`,
+          },
+        }
+      );
+      
+      logger.info(`Successfully fetched ${response.data.length} inboxes`);
+      
+      return response.data;
+    } catch (error: any) {
+      logger.error('Error fetching connected inboxes', { error });
+      
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        throw new Error(`Email Bison API error (${status}): ${data.error || data.message || 'Unknown error'}`);
+      }
+      
+      throw new Error(`Failed to fetch connected inboxes: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Get analytics data from Email Bison
+   */
+  async getAnalytics(timeRange: string = '30d'): Promise<EmailBisonAnalytics> {
+    try {
+      logger.info(`Fetching analytics data from Email Bison for time range: ${timeRange}`);
+      
+      const response = await axios.get(
+        `${this.config.apiUrl}/analytics`,
+        {
+          params: { time_range: timeRange },
+          headers: {
+            'Authorization': `Bearer ${this.config.apiKey}`,
+          },
+        }
+      );
+      
+      logger.info('Successfully fetched analytics data');
+      
+      return response.data;
+    } catch (error: any) {
+      logger.error('Error fetching analytics data', { error });
+      
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        throw new Error(`Email Bison API error (${status}): ${data.error || data.message || 'Unknown error'}`);
+      }
+      
+      throw new Error(`Failed to fetch analytics data: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Get new emails for an inbox
+   * @param inboxId The ID of the inbox to fetch emails for
+   * @returns Array of new emails
+   */
+  async getNewEmails(inboxId: string): Promise<EmailData[]> {
+    try {
+      logger.info(`Fetching new emails for inbox ${inboxId}`);
+      
+      const response = await axios.get(
+        `${this.config.apiUrl}/inboxes/${inboxId}/emails/new`,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.config.apiKey}`,
+          },
+        }
+      );
+      
+      logger.info(`Successfully fetched ${response.data.length} new emails for inbox ${inboxId}`);
+      
+      return response.data;
+    } catch (error: any) {
+      logger.error(`Error fetching new emails for inbox ${inboxId}`, { error });
+      
+      if (axios.isAxiosError(error) && error.response) {
+        const { status, data } = error.response;
+        
+        if (status === 404) {
+          logger.warn(`Inbox ${inboxId} not found`);
+          return [];
+        }
+        
+        throw new Error(`Email Bison API error (${status}): ${data.error || data.message || 'Unknown error'}`);
+      }
+      
+      throw new Error(`Failed to fetch new emails: ${error.message}`);
     }
   }
 }

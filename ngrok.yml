@@ -1,7 +1,11 @@
 version: 2
-authtoken: 
+authtoken: 2w811WLzR82unxRftCbGHadGYnq_kF9FMjcZ4Kdx5Qgn67za
 tunnels:
-  webhook:
+  backend:
     proto: http
-    addr: 3002
+    addr: 3001
+    inspect: false
+  frontend:
+    proto: http
+    addr: 3000
     inspect: false

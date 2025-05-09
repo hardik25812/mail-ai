@@ -322,4 +322,159 @@ export class SupabaseClient {
       throw error;
     }
   }
+  
+  /**
+   * Get all connected inboxes
+   * Optionally filter by workspace ID and include workspace API key
+   * @param workspaceId Optional workspace ID to filter by
+   * @param includeApiKey Whether to include the Bison API key in the result
+   */
+  async getConnectedInboxes(workspaceId?: string, includeApiKey: boolean = false) {
+    try {
+      logger.info('Fetching connected inboxes', { workspaceId });
+      
+      // First get the inboxes
+      let query = this.client.from('inboxes').select('*');
+      
+      // Filter by connected status if the column exists
+      const { data: inboxes, error: inboxError } = await query;
+      
+      if (inboxError) {
+        logger.error('Error fetching inboxes', { error: inboxError });
+        throw new Error(`Failed to fetch inboxes: ${inboxError.message}`);
+      }
+      
+      // Filter connected inboxes
+      const connectedInboxes = inboxes.filter(inbox => {
+        return inbox.connected === undefined || inbox.connected === true;
+      });
+      
+      // If we need workspace info, fetch it separately
+      if (workspaceId || includeApiKey) {
+        // Get the workspaces info
+        const { data: workspaces, error: workspaceError } = await this.client
+          .from('workspaces')
+          .select('id, bison_api_key, bison_workspace_id')
+          .in('id', connectedInboxes.map(inbox => inbox.workspace_id));
+        
+        if (workspaceError) {
+          logger.error('Error fetching workspaces', { error: workspaceError });
+          throw new Error(`Failed to fetch workspaces: ${workspaceError.message}`);
+        }
+        
+        // Create a map for quick lookup
+        const workspaceMap: Record<string, any> = {};
+        workspaces.forEach(ws => {
+          workspaceMap[ws.id] = ws;
+        });
+        
+        // Enhance inbox objects with workspace data
+        const enhancedInboxes = connectedInboxes.map(inbox => {
+          const workspace = workspaceMap[inbox.workspace_id];
+          
+          if (workspace) {
+            const result = {
+              ...inbox,
+              bison_workspace_id: workspace.bison_workspace_id
+            };
+            
+            // Include API key if requested
+            if (includeApiKey && workspace.bison_api_key) {
+              result.bison_api_key = workspace.bison_api_key;
+            }
+            
+            return result;
+          }
+          
+          return inbox;
+        });
+        
+        // Filter by workspace if needed
+        const filteredInboxes = workspaceId 
+          ? enhancedInboxes.filter(inbox => inbox.workspace_id === workspaceId)
+          : enhancedInboxes;
+        
+        logger.info(`Fetched ${filteredInboxes.length} inboxes`);
+        return filteredInboxes;
+      }
+      
+      logger.info(`Fetched ${connectedInboxes.length} inboxes`);
+      return connectedInboxes;
+    } catch (error) {
+      logger.error('Error in getConnectedInboxes', { error });
+      throw error;
+    }
+  }
+  
+  /**
+   * Save an email to the database
+   */
+  async saveEmail(email: {
+    inbox_id: string;
+    message_id: string;
+    thread_id: string;
+    subject: string;
+    body: string;
+    sender: string;
+    recipient: string;
+    status: string;
+    is_inbound: boolean;
+    received_at: string;
+    created_at: string;
+    updated_at: string;
+  }) {
+    try {
+      logger.info(`Saving email ${email.message_id} to database`);
+      
+      const { data, error } = await this.client
+        .from('emails')
+        .insert([email])
+        .select()
+        .single();
+      
+      if (error) {
+        logger.error(`Error saving email ${email.message_id}`, { error });
+        throw new Error(`Failed to save email: ${error.message}`);
+      }
+      
+      logger.info(`Saved email ${email.message_id} with ID ${data.id}`);
+      return data;
+    } catch (error) {
+      logger.error(`Error in saveEmail for ${email.message_id}`, { error });
+      throw error;
+    }
+  }
+  
+  /**
+   * Create a job for an email
+   */
+  async createJob(job: {
+    email_id: string;
+    user_id: string;
+    status: string;
+    attempts: number;
+    created_at: string;
+    updated_at: string;
+  }) {
+    try {
+      logger.info(`Creating job for email ${job.email_id}`);
+      
+      const { data, error } = await this.client
+        .from('ai_reply_jobs')
+        .insert([job])
+        .select()
+        .single();
+      
+      if (error) {
+        logger.error(`Error creating job for email ${job.email_id}`, { error });
+        throw new Error(`Failed to create job: ${error.message}`);
+      }
+      
+      logger.info(`Created job ${data.id} for email ${job.email_id}`);
+      return data;
+    } catch (error) {
+      logger.error(`Error in createJob for email ${job.email_id}`, { error });
+      throw error;
+    }
+  }
 }

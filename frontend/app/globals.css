@@ -1,0 +1,104 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 262 83.3% 67.1%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 262 83.3% 67.1%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 13%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 16%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 16%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 262 83.3% 67.1%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 3.7% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 20%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 262 83.3% 67.1%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 25%;
+    --input: 240 3.7% 25%;
+    --ring: 262 83.3% 67.1%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom gradient button styles */
+.gradient-button {
+  background: linear-gradient(135deg, #7b68ee 0%, #9370db 100%);
+  transition: all 0.3s ease;
+}
+
+.gradient-button:hover {
+  background: linear-gradient(135deg, #9370db 0%, #7b68ee 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(123, 104, 238, 0.3);
+}
+
+/* Custom card hover effect */
+.hover-card {
+  transition: all 0.3s ease;
+}
+
+.hover-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+}
+
+/* Button glow effect */
+.btn-glow {
+  position: relative;
+}
+
+.btn-glow:after {
+  content: "";
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  right: -4px;
+  bottom: -4px;
+  background: linear-gradient(135deg, #7b68ee 0%, #9370db 100%);
+  border-radius: var(--radius);
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.btn-glow:hover:after {
+  opacity: 0.5;
+}
