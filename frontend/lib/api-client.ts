@@ -2,31 +2,13 @@ import axios, { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import { getCachedData, setCachedData } from './cache-utils';
 import { toast } from 'sonner';
 
-// API response types
-export interface PaginatedResponse<T> {
-  data: T[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
+// Import shared API types
+import { PaginatedResponse, ApiResponse, ApiError } from './types/api-types';
 
-export interface ApiResponse<T> {
-  data: T;
-  status: number;
-  message?: string;
-}
-
-export interface ApiError {
-  status: number;
-  message: string;
-  details?: any;
-}
-
-// API base URL - using relative paths for Next.js API routes
-const API_BASE_URL = '/api';
+// API base URL - targeting our local backend when in development
+const API_BASE_URL = process.env.NODE_ENV === 'development' 
+  ? 'http://localhost:3001/api' 
+  : '/api';
 
 // Request timeout (ms)
 const REQUEST_TIMEOUT = 15000;
@@ -39,6 +21,8 @@ const apiClient = axios.create({
   },
   // Add a timeout to prevent hanging requests
   timeout: REQUEST_TIMEOUT,
+  // Enable credentials for CORS (cookies, authorization headers)
+  withCredentials: true,
 });
 
 // Add request logger for debugging

@@ -3,7 +3,9 @@ import { toast } from 'sonner';
 import { mockInboxes, mockWorkspaces, mockEmailThreads, mockEmails, usesMockData } from './mock-data';
 
 // Define the base URL for API calls
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+const API_BASE_URL = process.env.NODE_ENV === 'development'
+  ? 'http://localhost:3001/api' // Local development backend
+  : (process.env.NEXT_PUBLIC_API_URL || '/api');
 
 // Define types for API responses
 export interface Workspace {
@@ -64,6 +66,8 @@ const apiClient: AxiosInstance = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
+  // Enable credentials for CORS (cookies, authorization headers)
+  withCredentials: true,
 });
 
 // Handle response data
@@ -156,15 +160,10 @@ const api = {
   
   inboxes: {
     getAll: async (): Promise<Inbox[]> => {
-      // Use mock data in development mode
-      if (usesMockData()) {
-        console.log('Using mock inbox data');
-        return Promise.resolve(mockInboxes);
-      }
-      
       try {
-        const response = await apiClient.get('/inboxes');
-        return response.data;
+        // Use our new backend API endpoint
+        const response = await apiClient.get('/emails/inboxes');
+        return response.data.data; // Extract data from ApiResponse wrapper
       } catch (error) {
         console.error('Error fetching inboxes:', error);
         // Return mock data as fallback in development
@@ -177,22 +176,10 @@ const api = {
     },
     
     getById: async (id: string): Promise<Inbox> => {
-      // Use mock data in development mode
-      if (usesMockData()) {
-        console.log(`Using mock inbox data for ${id}`);
-        const inbox = mockInboxes.find(inbox => inbox.id === id);
-        if (inbox) {
-          return Promise.resolve(inbox);
-        }
-        return Promise.reject({
-          status: 404,
-          message: `Inbox with id ${id} not found in mock data`
-        });
-      }
-      
       try {
-        const response = await apiClient.get(`/inboxes/${id}`);
-        return response.data;
+        // Use our new backend API endpoint
+        const response = await apiClient.get(`/emails/inboxes/${id}`);
+        return response.data.data; // Extract data from ApiResponse wrapper
       } catch (error) {
         console.error(`Error fetching inbox ${id}:`, error);
         // Try to find in mock data as fallback in development
@@ -210,23 +197,32 @@ const api = {
   
   emails: {
     getThreads: async (inboxId?: string, page = 1, limit = 20): Promise<EmailThread[]> => {
-      // Use mock data in development mode
-      if (usesMockData()) {
-        console.log(`Using mock email threads data for inbox ${inboxId}`);
-        if (inboxId && mockEmailThreads[inboxId]) {
-          return Promise.resolve(mockEmailThreads[inboxId]);
-        }
-        return Promise.resolve([]);
-      }
-      
       try {
+        // Build query parameters
         const params = new URLSearchParams();
-        if (inboxId) params.append('inbox', inboxId);
+        if (inboxId) params.append('inboxId', inboxId);
         params.append('page', page.toString());
         params.append('limit', limit.toString());
         
-        const response = await apiClient.get(`/email-threads?${params.toString()}`);
-        return response.data;
+        // Use our new backend API endpoint
+        const response = await apiClient.get(`/emails/threads?${params.toString()}`);
+        
+        // Extract and transform data to match frontend expectations
+        const threads = response.data.data.map((thread: any) => ({
+          id: thread.id,
+          subject: thread.subject,
+          latest_email: {
+            id: thread.messages[thread.messages.length - 1]?.id,
+            senderName: thread.messages[thread.messages.length - 1]?.from.name,
+            senderEmail: thread.messages[thread.messages.length - 1]?.from.email,
+            body: thread.messages[thread.messages.length - 1]?.snippet,
+            received_at: thread.messages[thread.messages.length - 1]?.date
+          },
+          email_count: thread.messageCount,
+          has_unread: thread.unreadCount > 0
+        }));
+        
+        return threads;
       } catch (error) {
         console.error('Error fetching email threads:', error);
         // Return mock data as fallback in development
@@ -239,21 +235,24 @@ const api = {
     },
     
     getThread: async (threadId: string): Promise<Email[]> => {
-      // Use mock data in development mode
-      if (usesMockData()) {
-        console.log(`Using mock emails data for thread ${threadId}`);
-        if (mockEmails[threadId]) {
-          return Promise.resolve(mockEmails[threadId]);
-        }
-        return Promise.reject({
-          status: 404,
-          message: `Thread with id ${threadId} not found in mock data`
-        });
-      }
-      
       try {
-        const response = await apiClient.get(`/email-threads/${threadId}`);
-        return response.data;
+        // Use our new backend API endpoint
+        const response = await apiClient.get(`/emails/threads/${threadId}`);
+        
+        // Extract thread and transform messages to match frontend expectations
+        const thread = response.data.data;
+        const emails = thread.messages.map((message: any) => ({
+          id: message.id,
+          thread_id: threadId,
+          subject: message.subject,
+          body: message.body,
+          sender: `${message.from.name} <${message.from.email}>`,
+          received_at: message.date,
+          is_inbound: message.from.email !== thread.messages[0].to[0].email,
+          is_ai_reply: message.labels?.includes('ai-generated') || false
+        }));
+        
+        return emails;
       } catch (error) {
         console.error(`Error fetching email thread ${threadId}:`, error);
         // Try to find in mock data as fallback in development
@@ -267,10 +266,36 @@ const api = {
       }
     },
     
-    triggerAIReply: async (emailId: string): Promise<{ success: boolean }> => {
+    triggerAIReply: async (emailId: string, threadId?: string, inboxId?: string): Promise<{ success: boolean }> => {
       try {
-        const response = await apiClient.post('/trigger-ai-reply', { emailId });
-        return response.data;
+        // Need to get thread and inbox information first if not provided
+        if (!threadId || !inboxId) {
+          // Find the email to get its threadId and inboxId
+          const allThreads = Object.values(mockEmailThreads).flat();
+          for (const thread of allThreads) {
+            const email = mockEmails[thread.id]?.find(e => e.id === emailId);
+            if (email) {
+              threadId = thread.id;
+              // Find inboxId from mockInboxes based on workspace association
+              inboxId = mockInboxes[0].id; // Default to first inbox if can't find
+              break;
+            }
+          }
+          
+          if (!threadId || !inboxId) {
+            throw new Error('Could not find thread or inbox for the provided email');
+          }
+        }
+        
+        // Use our new backend API endpoint
+        const response = await apiClient.post('/ai-replies', { 
+          emailId, 
+          threadId, 
+          inboxId,
+          model: 'gpt-4' 
+        });
+        
+        return { success: true };
       } catch (error) {
         console.error(`Error triggering AI reply for email ${emailId}:`, error);
         throw error;

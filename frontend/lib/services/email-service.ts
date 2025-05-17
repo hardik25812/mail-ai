@@ -1,64 +1,21 @@
-import apiClient, { PaginatedResponse } from '../api-client';
+import apiClient from '../api-client';
 import { toast } from 'sonner';
-import websocketService from '../websocket-service';
+import { Email, EmailThread, Inbox, ApiResponse, PaginatedResponse } from '../types/api-types';
 
-export interface Email {
-  id: string;
-  inbox_id: string;
-  message_id: string;
-  thread_id: string;
-  subject: string;
-  body: string;
-  body_html: string | null;
-  sender: string;
-  recipient: string;
-  cc: string[];
-  bcc: string[];
-  status: string;
-  is_draft: boolean;
-  is_sent: boolean;
-  is_inbound: boolean;
-  is_read: boolean;
-  has_attachments: boolean;
-  importance: 'low' | 'normal' | 'high';
-  ai_processed: boolean;
-  ai_generated_reply: string | null;
-  received_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
+// Using imported types from api-types.ts
 
-export interface Thread {
-  id: string;
-  subject: string;
-  emails: Email[];
-  participants: string[];
-  last_updated_at: string;
-  is_important: boolean;
-  unread_count: number;
-  total_emails: number;
-}
+// Using imported types from api-types.ts
 
-export interface Inbox {
-  id: string;
-  name: string;
-  email_address: string;
-  active: boolean;
-  last_synced_at: string | null;
-  unread_count: number;
-  total_emails: number;
-  workspace_id: string;
-  type: 'personal' | 'shared' | 'support' | 'other';
-}
+// Using imported types from api-types.ts
 
 export interface EmailFilter {
-  is_read?: boolean;
-  is_flagged?: boolean;
-  has_attachments?: boolean;
-  date_from?: string;
-  date_to?: string;
+  isRead?: boolean;
+  label?: string;
+  dateFrom?: string;
+  dateTo?: string;
   sender?: string;
-  search_term?: string;
+  hasAttachments?: boolean;
+  search?: string;
 }
 
 export interface EmailSyncStatus {
@@ -68,40 +25,23 @@ export interface EmailSyncStatus {
   message?: string;
 }
 
-// Set up real-time email updates
+// Mock implementation for real-time updates since we're not using WebSockets in dev mode
 const setupRealTimeUpdates = (workspaceId: string, inboxId?: string, callback?: () => void) => {
-  // First disconnect any existing connection
-  websocketService.disconnect();
-  
-  // Connect to WebSocket server with workspace ID
-  websocketService.connect(workspaceId);
-  
-  // Subscribe to different event types
-  const unsubscribeNewEmail = websocketService.subscribe('new_email', (email) => {
-    toast.info(`New email received: ${email.subject}`);
-    if (callback) callback();
-  });
-  
-  const unsubscribeUpdatedEmail = websocketService.subscribe('email_updated', (email) => {
-    if (callback) callback();
-  });
-  
-  const unsubscribeInboxSync = websocketService.subscribe('inbox_sync_complete', (syncStatus) => {
-    toast.success(`Inbox ${syncStatus.inbox_id} synchronized`);
-    if (callback) callback();
-  });
-  
-  // Subscribe to a specific inbox if provided
+  console.log(`[MOCK] Setting up real-time updates for workspace ${workspaceId}`);
   if (inboxId) {
-    websocketService.send('subscribe-inbox', { inbox_id: inboxId });
+    console.log(`[MOCK] Subscribing to inbox ${inboxId}`);
   }
   
-  // Return cleanup function to unsubscribe from all events
+  // Set up a polling interval to simulate real-time updates (only in dev)
+  const intervalId = setInterval(() => {
+    console.log('[MOCK] Polling for updates...');
+    if (callback) callback();
+  }, 30000); // Poll every 30 seconds
+  
+  // Return cleanup function
   return () => {
-    unsubscribeNewEmail();
-    unsubscribeUpdatedEmail();
-    unsubscribeInboxSync();
-    websocketService.disconnect();
+    console.log('[MOCK] Cleaning up real-time updates');
+    clearInterval(intervalId);
   };
 };
 
@@ -109,16 +49,17 @@ export const EmailService = {
   // Set up real-time updates
   setupRealTimeUpdates,
   
-  // Get all inboxes with optional pagination
+  // Get all inboxes with optional filtering by workspace
   getInboxes: async (workspaceId?: string) => {
     try {
       const params: any = {};
-      if (workspaceId) params.workspace_id = workspaceId;
+      if (workspaceId) params.workspaceId = workspaceId;
       
-      const { data } = await apiClient.get<Inbox[]>('/inboxes', { params });
-      return data;
+      const { data } = await apiClient.get<ApiResponse<Inbox[]>>('/emails/inboxes', { params });
+      return data.data;
     } catch (error) {
       console.error('Error fetching inboxes:', error);
+      toast.error('Failed to load inboxes');
       throw error;
     }
   },
@@ -127,16 +68,17 @@ export const EmailService = {
   getEmails: async (inboxId: string, page: number = 1, limit: number = 25, filters?: EmailFilter) => {
     try {
       const params = {
-        inbox_id: inboxId,
+        inboxId,
         page,
         limit,
         ...filters
       };
       
-      const data = await apiClient.getPaginated<Email>('/emails', page, limit, { inbox_id: inboxId, ...filters });
+      const data = await apiClient.getPaginated<Email>('/emails/threads', page, limit, params);
       return data;
     } catch (error) {
       console.error('Error fetching emails:', error);
+      toast.error('Failed to load emails');
       throw error;
     }
   },
@@ -144,10 +86,11 @@ export const EmailService = {
   // Get a specific email by ID
   getEmail: async (emailId: string) => {
     try {
-      const { data } = await apiClient.get<Email>(`/emails/${emailId}`);
-      return data;
+      const { data } = await apiClient.get<ApiResponse<Email>>(`/emails/${emailId}`);
+      return data.data;
     } catch (error) {
       console.error(`Error fetching email ${emailId}:`, error);
+      toast.error('Failed to load email');
       throw error;
     }
   },
@@ -155,10 +98,11 @@ export const EmailService = {
   // Get a thread with all its emails
   getThread: async (threadId: string) => {
     try {
-      const { data } = await apiClient.get<Thread>(`/threads/${threadId}`);
-      return data;
+      const { data } = await apiClient.get<ApiResponse<EmailThread>>(`/emails/threads/${threadId}`);
+      return data.data;
     } catch (error) {
       console.error(`Error fetching thread ${threadId}:`, error);
+      toast.error('Failed to load email thread');
       throw error;
     }
   },
@@ -167,27 +111,34 @@ export const EmailService = {
   getThreads: async (inboxId: string, page: number = 1, limit: number = 25, filters?: EmailFilter) => {
     try {
       const params = {
-        inbox_id: inboxId,
-        page,
+        inboxId,
+        page, 
         limit,
         ...filters
       };
       
-      const data = await apiClient.getPaginated<Thread>('/threads', page, limit, { inbox_id: inboxId, ...filters });
+      const data = await apiClient.getPaginated<EmailThread>('/emails/threads', page, limit, params);
       return data;
     } catch (error) {
       console.error('Error fetching threads:', error);
+      toast.error('Failed to load email threads');
       throw error;
     }
   },
 
   // Trigger AI reply for an email
-  triggerAiReply: async (emailId: string) => {
+  triggerAiReply: async (emailId: string, threadId: string, inboxId: string, prompt?: string) => {
     try {
       toast.loading('Generating AI reply...');
-      const { data } = await apiClient.post('/trigger-ai-reply', { email_id: emailId });
-      toast.success('AI reply generated successfully');
-      return data;
+      const { data } = await apiClient.post('/ai-replies', { 
+        emailId, 
+        threadId, 
+        inboxId,
+        prompt,
+        model: 'gpt-4' 
+      });
+      toast.success('AI reply generation started');
+      return data.data;
     } catch (error) {
       console.error(`Error triggering AI reply for email ${emailId}:`, error);
       toast.error('Failed to generate AI reply');
@@ -256,10 +207,11 @@ export const EmailService = {
   // Mark email as read/unread
   markEmailReadStatus: async (emailId: string, isRead: boolean) => {
     try {
-      const { data } = await apiClient.patch(`/emails/${emailId}/read-status`, { is_read: isRead });
-      return data;
+      const { data } = await apiClient.patch(`/emails/${emailId}`, { isRead });
+      return data.data;
     } catch (error) {
       console.error(`Error marking email ${emailId} as ${isRead ? 'read' : 'unread'}:`, error);
+      toast.error(`Failed to mark email as ${isRead ? 'read' : 'unread'}`);
       throw error;
     }
   },
