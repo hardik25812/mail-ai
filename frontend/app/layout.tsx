@@ -4,7 +4,8 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ToastProvider } from '@/components/providers/toast-provider'
-import { MockDataProvider } from '@/components/providers/mock-data-provider'
+import { MockDataProvider } from '@/components/providers/mock-data-provider';
+import { QueryProvider } from '@/components/providers/query-provider';
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" })
 
@@ -24,8 +25,11 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`}>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
           <ToastProvider>
-            <MockDataProvider />
-            {children}
+            {/* Use MockDataProvider only in development when needed */}
+            {process.env.NODE_ENV === 'development' && <MockDataProvider />}
+            <QueryProvider>
+              {children}
+            </QueryProvider>
           </ToastProvider>
         </ThemeProvider>
       </body>

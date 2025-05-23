@@ -123,5 +123,6 @@ export const mockEmails: Record<string, Email[]> = {
 
 // Helper function to get mock data based on the environment
 export const usesMockData = (): boolean => {
-  return process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true';
+  // Always return false to force using real API data
+  return false;
 };

@@ -16,17 +16,35 @@ router.get('/', async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     
-    // Call Email Bison API with correct endpoint format
-    // Remove the redundant /api prefix since it's already in the baseURL
-    const response = await bisonApiClient.get<EmailBisonPaginatedResponse<EmailBisonWorkspace>>('/workspaces', {
-      params: { page, limit }
-    });
+    console.log('Making API request to:', `${bisonApiClient.defaults.baseURL}/api/workspaces`);
     
-    // Log success for diagnostics
-    console.log('Successfully fetched workspaces from Email Bison API');
-    
-    // Return data to client
-    return res.status(200).json(response.data);
+    try {
+      // Use the correct endpoint path with /api prefix
+      const response = await bisonApiClient.get('/api/workspaces', {
+        params: { page, limit }
+      });
+      
+      // Log success and data for diagnostics
+      console.log('Successfully fetched workspaces from Email Bison API');
+      console.log('Response has data property:', !!response.data);
+      
+      // Get the workspaces from the response
+      const workspaces = response.data?.data || [];
+      
+      console.log(`Found ${workspaces.length} workspaces from Email Bison API`);
+      if (workspaces.length > 0) {
+        console.log('First workspace:', JSON.stringify(workspaces[0]).substring(0, 100) + '...');
+      }
+      
+      // Return properly structured response
+      return res.status(200).json({
+        success: true,
+        data: workspaces
+      });
+    } catch (apiError) {
+      console.error('Error in direct API call:', apiError);
+      throw apiError; // Let the outer catch block handle this
+    }
   } catch (error: any) {
     console.error('Error fetching workspaces:', error);
     

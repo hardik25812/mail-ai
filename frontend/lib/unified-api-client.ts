@@ -4,7 +4,10 @@ import { mockInboxes, mockWorkspaces, mockEmailThreads, mockEmails, usesMockData
 import { getCachedData, setCachedData } from './cache-utils';
 
 // Define the base URL for API calls
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
+const API_BASE_URL = 'http://localhost:4001/api';
+
+// Log the API URL to verify it's being used
+console.log('API BASE URL:', API_BASE_URL);
 
 // Define types for API responses - matching Supabase schema
 export interface Workspace {

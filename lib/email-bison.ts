@@ -76,7 +76,7 @@ export class EmailBisonClient {
   constructor(config: Partial<EmailBisonConfig> = {}) {
     this.config = {
       apiKey: config.apiKey || process.env.EMAIL_BISON_API_KEY || '',
-      apiUrl: config.apiUrl || process.env.EMAIL_BISON_API_URL || 'https://api.emailbison.com/v1',
+      apiUrl: config.apiUrl || process.env.EMAIL_BISON_API_URL || 'https://sender.recruitron.io/v1',
     };
     
     if (!this.config.apiKey) {

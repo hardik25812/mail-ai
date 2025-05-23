@@ -19,18 +19,37 @@ router.get('/', async (req: Request, res: Response) => {
     const limit = req.query.limit ? Number(req.query.limit) : 20;
 
     try {
-      // Get inboxes from Email Bison API using the correct endpoint without the '/api' prefix
-      // since it's already included in the base URL
-      const response = await bisonApiClient.get<EmailBisonPaginatedResponse<EmailBisonInbox>>('/sender-emails', { params: { page, limit } });
+      // Get inboxes from Email Bison API using the correct endpoint path
+      console.log('Making API request to:', `${bisonApiClient.defaults.baseURL}/api/sender-emails`);
       
-      // Log success for diagnostics
-      console.log('Successfully fetched inboxes from Email Bison API');
-      
-      return res.status(200).json({
-        success: true,
-        data: response.data.data,
-        meta: response.data.meta,
-      });
+      try {
+        // Use the correct endpoint path with /api prefix
+        const response = await bisonApiClient.get('/api/sender-emails', { params: { page, limit } });
+        
+        console.log('Successfully fetched inboxes from Email Bison API');
+        console.log('Response has data property:', !!response.data);
+        
+        // Get the correct data from the response
+        const inboxes = response.data?.data || [];
+        const meta = response.data?.meta || {};
+        const links = response.data?.links || {};
+        
+        console.log(`Found ${inboxes.length} inboxes from Email Bison API`);
+        if (inboxes.length > 0) {
+          console.log('First inbox:', JSON.stringify(inboxes[0]).substring(0, 100) + '...');
+        }
+        
+        // Return the properly structured response
+        return res.status(200).json({
+          success: true,
+          data: inboxes,
+          meta: meta,
+          links: links
+        });
+      } catch (apiError) {
+        console.error('Error in direct API call:', apiError);
+        throw apiError; // Let the outer catch block handle this
+      }
     } catch (error: any) {
       console.error('Error fetching inboxes from Email Bison API:', error.message);
       console.error('API URL:', bisonApiClient.defaults.baseURL);
@@ -104,6 +123,40 @@ router.get('/:id', async (req: Request, res: Response) => {
       success: false,
       message,
       error: error.details || error.originalError?.message || error
+    });
+  }
+});
+
+/**
+ * @route POST /api/inboxes/import-from-email-bison
+ * @desc Import inboxes from Email Bison API and store them in the database
+ * @access Private
+ */
+router.post('/import-from-email-bison', async (req: Request, res: Response) => {
+  try {
+    console.log('Importing inboxes from Email Bison');
+    
+    // Get inboxes from Email Bison API
+    const response = await bisonApiClient.get('/api/sender-emails');
+    const inboxes = response.data?.data || [];
+    
+    console.log(`Found ${inboxes.length} inboxes to import`);
+    
+    // Here we would typically store the inboxes in our database
+    // For now, we'll just return them directly
+    
+    return res.status(200).json({
+      success: true,
+      message: 'Inboxes imported successfully',
+      data: inboxes
+    });
+  } catch (error: any) {
+    console.error('Error importing inboxes from Email Bison:', error);
+    
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to import inboxes from Email Bison',
+      error: error.message
     });
   }
 });

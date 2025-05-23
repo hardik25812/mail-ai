@@ -288,52 +288,21 @@ export const AnalyticsService = {
     meetingStats: MeetingStats;
   }> => {
     try {
-      // Log according to rule #3
+      // Log request
       console.log('Importing analytics data from Email Bison');
-      console.log('Getting email stats from Bison API');
       
-      // Try to fetch live Email Bison data through Bison API if possible
-      // You can add direct BisonService calls here once they're implemented
-      // For now, we'll use our internal analytics service with mock fallbacks
-      
-      // Fix: Don't use 'this', use the AnalyticsService object directly
-      const emailStats = await AnalyticsService.getEmailStats('30d', workspaceId) || {
-        total: 0,
-        received: 0,
-        sent: 0,
-        auto_replied: 0,
-        growth_percentage: 0
-      };
-      const responseTimeStats = await AnalyticsService.getResponseTimeStats('30d', workspaceId) || {
-        average_minutes: 0,
-        improvement_percentage: 0
-      };
-      const meetingStats = await AnalyticsService.getMeetingStats('30d', workspaceId) || {
-        booked: 0,
-        completed: 0,
-        cancelled: 0,
-        growth_percentage: 0
-      };
-      
-      return {
-        emailStats: emailStats || {
-          total: 0,
-          received: 0,
-          sent: 0,
-          auto_replied: 0,
-          growth_percentage: 0
-        },
-        responseTimeStats: responseTimeStats || {
-          average_minutes: 0,
-          improvement_percentage: 0
-        },
-        meetingStats: meetingStats || {
-          booked: 0,
-          completed: 0,
-          cancelled: 0,
-          growth_percentage: 0
-        }
-      };
+      try {
+        // Call the actual import endpoint we just created
+        const response = await api.post('/analytics/import-from-email-bison', { workspace_id: workspaceId });
+        
+        console.log('Successfully imported analytics data from Email Bison');
+        
+        // Return the data from the API response
+        return response.data.data;
+      } catch (apiError) {
+        console.error('Error calling import endpoint:', apiError);
+        throw apiError; // Let the outer catch handle this
+      }
     } catch (error) {
       // Log error according to rule #3
       console.error('Error importing analytics data from Email Bison:', error);

@@ -19,178 +19,98 @@ export interface InboxStats {
   topContacts: { name: string; email: string; count: number }[]
 }
 
-export const mockInboxStats: InboxStats[] = [
-  {
-    id: "work-gmail",
-    name: "Work Gmail",
-    email: "john.doe@company.com",
-    totalEmails: 1248,
-    unreadEmails: 37,
-    sentEmails: 892,
-    archivedEmails: 456,
-    responseRate: 94,
-    avgResponseTime: 28,
-    meetingsScheduled: 42,
-    autoReplies: 356,
-    emailsByDay: [
-      { day: "Mon", count: 45 },
-      { day: "Tue", count: 52 },
-      { day: "Wed", count: 48 },
-      { day: "Thu", count: 61 },
-      { day: "Fri", count: 55 },
-      { day: "Sat", count: 28 },
-      { day: "Sun", count: 22 },
-    ],
-    responseTimeByHour: [
-      { hour: "9AM", time: 45 },
-      { hour: "10AM", time: 38 },
-      { hour: "11AM", time: 42 },
-      { hour: "12PM", time: 35 },
-      { hour: "1PM", time: 40 },
-      { hour: "2PM", time: 32 },
-      { hour: "3PM", time: 28 },
-      { hour: "4PM", time: 30 },
-      { hour: "5PM", time: 52 },
-    ],
-    categories: [
-      { name: "Business", count: 45, color: "#7B68EE" },
-      { name: "Personal", count: 25, color: "#4ECDC4" },
-      { name: "Marketing", count: 20, color: "#FF6B6B" },
-      { name: "Other", count: 10, color: "#FFE66D" },
-    ],
-    topContacts: [
-      { name: "Sarah Johnson", email: "sarah.j@example.com", count: 78 },
-      { name: "Michael Chen", email: "m.chen@example.com", count: 65 },
-      { name: "Alex Rodriguez", email: "alex.r@example.com", count: 52 },
-      { name: "Emily Davis", email: "e.davis@example.com", count: 43 },
-      { name: "David Kim", email: "d.kim@example.com", count: 37 },
-    ],
-  },
-  {
-    id: "personal-gmail",
-    name: "Personal Gmail",
-    email: "john.personal@gmail.com",
-    totalEmails: 856,
-    unreadEmails: 24,
-    sentEmails: 623,
-    archivedEmails: 312,
-    responseRate: 88,
-    avgResponseTime: 35,
-    meetingsScheduled: 18,
-    autoReplies: 245,
-    emailsByDay: [
-      { day: "Mon", count: 32 },
-      { day: "Tue", count: 38 },
-      { day: "Wed", count: 35 },
-      { day: "Thu", count: 42 },
-      { day: "Fri", count: 40 },
-      { day: "Sat", count: 45 },
-      { day: "Sun", count: 38 },
-    ],
-    responseTimeByHour: [
-      { hour: "9AM", time: 52 },
-      { hour: "10AM", time: 45 },
-      { hour: "11AM", time: 48 },
-      { hour: "12PM", time: 42 },
-      { hour: "1PM", time: 46 },
-      { hour: "2PM", time: 38 },
-      { hour: "3PM", time: 35 },
-      { hour: "4PM", time: 40 },
-      { hour: "5PM", time: 58 },
-    ],
-    categories: [
-      { name: "Friends", count: 55, color: "#7B68EE" },
-      { name: "Family", count: 35, color: "#4ECDC4" },
-      { name: "Shopping", count: 15, color: "#FF6B6B" },
-      { name: "Other", count: 5, color: "#FFE66D" },
-    ],
-    topContacts: [
-      { name: "Lisa Wong", email: "lisa.w@example.com", count: 65 },
-      { name: "Robert Smith", email: "r.smith@example.com", count: 58 },
-      { name: "Jessica Lee", email: "j.lee@example.com", count: 47 },
-      { name: "Thomas Brown", email: "t.brown@example.com", count: 36 },
-      { name: "Amanda Clark", email: "a.clark@example.com", count: 29 },
-    ],
-  },
-  {
-    id: "outlook",
-    name: "Outlook",
-    email: "j.doe@outlook.com",
-    totalEmails: 624,
-    unreadEmails: 18,
-    sentEmails: 412,
-    archivedEmails: 215,
-    responseRate: 91,
-    avgResponseTime: 32,
-    meetingsScheduled: 24,
-    autoReplies: 178,
-    emailsByDay: [
-      { day: "Mon", count: 28 },
-      { day: "Tue", count: 35 },
-      { day: "Wed", count: 32 },
-      { day: "Thu", count: 38 },
-      { day: "Fri", count: 36 },
-      { day: "Sat", count: 22 },
-      { day: "Sun", count: 18 },
-    ],
-    responseTimeByHour: [
-      { hour: "9AM", time: 38 },
-      { hour: "10AM", time: 32 },
-      { hour: "11AM", time: 35 },
-      { hour: "12PM", time: 30 },
-      { hour: "1PM", time: 34 },
-      { hour: "2PM", time: 28 },
-      { hour: "3PM", time: 25 },
-      { hour: "4PM", time: 32 },
-      { hour: "5PM", time: 42 },
-    ],
-    categories: [
-      { name: "Projects", count: 48, color: "#7B68EE" },
-      { name: "Clients", count: 32, color: "#4ECDC4" },
-      { name: "Internal", count: 18, color: "#FF6B6B" },
-      { name: "Other", count: 12, color: "#FFE66D" },
-    ],
-    topContacts: [
-      { name: "James Wilson", email: "j.wilson@example.com", count: 72 },
-      { name: "Patricia Moore", email: "p.moore@example.com", count: 63 },
-      { name: "Richard Taylor", email: "r.taylor@example.com", count: 54 },
-      { name: "Jennifer White", email: "j.white@example.com", count: 45 },
-      { name: "Charles Harris", email: "c.harris@example.com", count: 38 },
-    ],
-  },
-]
+// Create a mapping function to convert API inbox data to the format expected by this component
+export function mapApiInboxToStats(apiInbox: any): InboxStats {
+  // Default values for visualization data that might not be in the API response
+  const defaultEmailsByDay = [
+    { day: "Mon", count: 0 },
+    { day: "Tue", count: 0 },
+    { day: "Wed", count: 0 },
+    { day: "Thu", count: 0 },
+    { day: "Fri", count: 0 },
+    { day: "Sat", count: 0 },
+    { day: "Sun", count: 0 },
+  ];
 
-export function InboxStatistics({ inboxId }: { inboxId: string }) {
-  const inboxData = mockInboxStats.find((inbox) => inbox.id === inboxId)
+  const defaultResponseTimeByHour = [
+    { hour: "9AM", time: 0 },
+    { hour: "10AM", time: 0 },
+    { hour: "11AM", time: 0 },
+    { hour: "12PM", time: 0 },
+    { hour: "1PM", time: 0 },
+    { hour: "2PM", time: 0 },
+    { hour: "3PM", time: 0 },
+    { hour: "4PM", time: 0 },
+    { hour: "5PM", time: 0 },
+  ];
 
+  const defaultCategories = [
+    { name: "Business", count: 0, color: "#7B68EE" },
+    { name: "Personal", count: 0, color: "#4ECDC4" },
+    { name: "Marketing", count: 0, color: "#FF6B6B" },
+    { name: "Other", count: 0, color: "#FFE66D" },
+  ];
+
+  const defaultTopContacts = [
+    { name: "Contact 1", email: "contact1@example.com", count: 0 },
+    { name: "Contact 2", email: "contact2@example.com", count: 0 },
+    { name: "Contact 3", email: "contact3@example.com", count: 0 },
+    { name: "Contact 4", email: "contact4@example.com", count: 0 },
+    { name: "Contact 5", email: "contact5@example.com", count: 0 },
+  ];
+
+  return {
+    id: apiInbox.id || '',
+    name: apiInbox.name || apiInbox.email || 'Unknown Inbox',
+    email: apiInbox.email || '',
+    totalEmails: apiInbox.total_count || 0,
+    unreadEmails: apiInbox.unread_count || 0,
+    sentEmails: apiInbox.sent_count || 0,
+    archivedEmails: apiInbox.archived_count || 0,
+    responseRate: apiInbox.response_rate || 0,
+    avgResponseTime: apiInbox.avg_response_time || 0,
+    meetingsScheduled: apiInbox.meetings_scheduled || 0,
+    autoReplies: apiInbox.auto_replies || 0,
+    emailsByDay: apiInbox.emails_by_day || defaultEmailsByDay,
+    responseTimeByHour: apiInbox.response_time_by_hour || defaultResponseTimeByHour,
+    categories: apiInbox.categories || defaultCategories,
+    topContacts: apiInbox.top_contacts || defaultTopContacts,
+  };
+}
+
+export function InboxStatistics({ inboxId, inboxData }: { inboxId: string; inboxData: any }) {
+  // Convert API inbox data to the format expected by this component
+  const formattedData = mapApiInboxToStats(inboxData);
   if (!inboxData) {
     return <div>Inbox not found</div>
   }
+  
+  // Use the formatted data for rendering
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Emails"
-          value={inboxData.totalEmails}
+          value={formattedData.totalEmails}
           change="+24%"
           icon={<Mail className="h-4 w-4 text-muted-foreground" />}
         />
         <StatCard
           title="Response Rate"
-          value={`${inboxData.responseRate}%`}
+          value={`${formattedData.responseRate}%`}
           change="+5%"
           icon={<Mail className="h-4 w-4 text-muted-foreground" />}
         />
         <StatCard
           title="Avg. Response Time"
-          value={`${inboxData.avgResponseTime}m`}
+          value={`${formattedData.avgResponseTime}m`}
           change="-15%"
           icon={<Mail className="h-4 w-4 text-muted-foreground" />}
         />
         <StatCard
           title="Auto-Replies"
-          value={inboxData.autoReplies}
+          value={formattedData.autoReplies}
           change="+18%"
           icon={<Mail className="h-4 w-4 text-muted-foreground" />}
         />

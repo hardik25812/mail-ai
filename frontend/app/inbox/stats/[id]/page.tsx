@@ -3,13 +3,15 @@
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowLeft, Mail, Clock, Calendar, CheckCircle, Inbox, Send, Archive } from "lucide-react"
+import { ArrowLeft, Mail, Clock, Calendar, CheckCircle, Inbox as InboxIcon, Send, Archive } from "lucide-react"
 import { AnimatedButton } from "@/components/ui/animated-button"
 import { AnimatedCard } from "@/components/ui/animated-card"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { mockInboxStats } from "@/components/inbox-statistics"
+import { useInboxesQuery } from "@/hooks/useInboxesQuery";
+import { InboxStatistics, mapApiInboxToStats } from "@/components/inbox-statistics"; // Import mapApiInboxToStats
+import type { Inbox } from "@/lib/schemas"; // Import the Inbox type
 import {
   AreaChart,
   Area,
@@ -34,11 +36,22 @@ export default function InboxStatsPage() {
   const params = useParams()
   const router = useRouter()
   const inboxId = params.id as string
-  const [timeRange, setTimeRange] = useState("30d")
+  const [timeRange, setTimeRange] = useState("30d");
+  const { data: inboxes = [], isLoading: loading, error } = useInboxesQuery();
 
-  const inboxData = mockInboxStats.find((inbox) => inbox.id === inboxId)
+  const rawInboxData = inboxes.find((inbox: Inbox) => inbox.id === inboxId);
+  // Use the mapping function to prepare data for InboxStatistics component
+  const inboxData = rawInboxData ? mapApiInboxToStats(rawInboxData) : undefined;
 
-  if (!inboxData) {
+  if (loading || !inboxes) { // Check for inboxes array as well
+    return (
+      <div className="p-6">
+        <h1 className="text-2xl font-bold">Loading inbox data...</h1>
+      </div>
+    )
+  }
+
+  if (error || !inboxData) {
     return (
       <div className="p-6">
         <h1 className="text-2xl font-bold">Inbox not found</h1>

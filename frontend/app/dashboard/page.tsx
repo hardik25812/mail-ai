@@ -4,7 +4,7 @@ import { useState, Suspense, useEffect } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { useSearchParams, usePathname } from "next/navigation"
-import { Mail, Calendar, Users, Plus, Inbox, CheckCircle, Clock, BarChart3, Settings, Brain, Save, ChevronDown, ChevronRight } from "lucide-react"
+import { Mail, Calendar, Users, Plus, Inbox as InboxIcon, CheckCircle, Clock, BarChart3, Settings, Brain, Save, ChevronDown, ChevronRight } from "lucide-react"
 import { AnimatedCard } from "@/components/ui/animated-card"
 import { AnimatedButton } from "@/components/ui/animated-button"
 import { ToggleSwitch } from "@/components/ui/toggle-switch"
@@ -14,12 +14,20 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { mockInboxStats } from "@/components/inbox-statistics"
+import { useInboxesQuery } from "@/hooks/useInboxesQuery";
+import type { Inbox } from "@/lib/schemas"; // Import the Inbox type
 import { EmailBisonImport } from "@/components/email-bison-import"
-import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { InboxOverviewCard } from "@/components/InboxOverviewCard";
+import { EmailVolumeAreaChart, type EmailVolumeDataPoint } from "@/components/EmailVolumeAreaChart";
+import { ResponseRateGauge } from "@/components/ResponseRateGauge";
+import { TopContactsTable, type ContactData } from "@/components/TopContactsTable";
+import { CategoryDonutChart, type CategoryDataPoint } from "@/components/CategoryDonutChart";
 
 export default function DashboardPage() {
-  const [activeInboxes, setActiveInboxes] = useState(mockInboxStats.length)
+  const { data: inboxes = [], isLoading: loading, error, refetch } = useInboxesQuery({
+    refetchInterval: 30000, // Refresh dashboard stats every 30 seconds
+  });
   const [activeTab, setActiveTab] = useState("dashboard")
   const [inboxesExpanded, setInboxesExpanded] = useState(true)
   const searchParams = useSearchParams()
@@ -50,12 +58,16 @@ export default function DashboardPage() {
     show: { opacity: 1, y: 0 },
   }
 
-  // Calculate total statistics across all inboxes
-  const totalEmails = mockInboxStats.reduce((sum, inbox) => sum + inbox.totalEmails, 0)
-  const totalMeetings = mockInboxStats.reduce((sum, inbox) => sum + inbox.meetingsScheduled, 0)
-  const avgResponseRate = Math.round(
-    mockInboxStats.reduce((sum, inbox) => sum + inbox.responseRate, 0) / mockInboxStats.length,
-  )
+  // Calculate total statistics across all inboxes using real data
+  // Calculate total statistics across all inboxes using real data
+  // Ensure properties exist and default to 0 if not
+  const totalEmails = inboxes.reduce((sum: number, inbox: Inbox) => sum + (inbox.total_count ?? 0), 0);
+  const totalUnread = inboxes.reduce((sum: number, inbox: Inbox) => sum + (inbox.unread_count ?? 0), 0);
+  const activeInboxes = inboxes.filter((inbox: Inbox) => inbox.status === 'active').length;
+
+  
+  // We may not have these metrics from Email Bison API yet, so use placeholders
+  const avgResponseRate = 85 // Placeholder until we have real data
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="h-full">
@@ -85,129 +97,250 @@ export default function DashboardPage() {
 
         {/* Dashboard Tab Content */}
         <TabsContent value="dashboard" className="mt-0">
-          <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 p-6">
-            <AnimatedCard delay={0.1}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium">Total Emails</CardTitle>
-                <Mail className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{totalEmails.toLocaleString()}</div>
-                <p className="text-xs text-muted-foreground">Across all inboxes</p>
-              </CardContent>
-            </AnimatedCard>
-            <AnimatedCard delay={0.2}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium">Meetings Booked</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{totalMeetings}</div>
-                <p className="text-xs text-muted-foreground">+12% from last month</p>
-              </CardContent>
-            </AnimatedCard>
-            <AnimatedCard delay={0.3}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium">Active Inboxes</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{activeInboxes}</div>
-                <p className="text-xs text-muted-foreground">
-                  {activeInboxes} of {mockInboxStats.length} inboxes active
-                </p>
-              </CardContent>
-            </AnimatedCard>
-          </motion.div>
+          {loading ? (
+            <motion.div variants={item} className="p-6 flex justify-center">
+              <div className="flex flex-col items-center justify-center p-8">
+                <LoadingSpinner size="lg" />
+                <p className="text-muted-foreground mt-4">Loading inbox data...</p>
+              </div>
+            </motion.div>
+          ) : error ? (
+            <motion.div variants={item} className="p-6">
+              <Card className="border-destructive">
+                <CardContent className="p-6 text-center">
+                  <p className="text-destructive mb-4">Failed to load inbox data. Please try again.</p>
+                  <AnimatedButton variant="outline" onClick={() => refetch()}>
+                    Retry
+                  </AnimatedButton>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : (
+            <>
+            <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 p-6">
+              <AnimatedCard delay={0.1}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-medium">Total Emails</CardTitle>
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{totalEmails.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">Across all connected inboxes</p>
+                </CardContent>
+              </AnimatedCard>
 
+              <AnimatedCard delay={0.2}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-medium">Unread Emails</CardTitle>
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{totalUnread}</div>
+                  <p className="text-xs text-muted-foreground">Waiting for response</p>
+                </CardContent>
+              </AnimatedCard>
+
+              <AnimatedCard delay={0.3}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                  <CardTitle className="text-sm font-medium">Active Inboxes</CardTitle>
+                  <InboxIcon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{activeInboxes}</div>
+                  <p className="text-xs text-muted-foreground">Connected and syncing</p>
+                </CardContent>
+              </AnimatedCard>
+            </motion.div>
+            {/* --- BEGIN NEW CHARTS SECTION --- */}
+            <motion.div variants={item} className="grid gap-4 md:grid-cols-2 p-6 pt-0">
+              <AnimatedCard delay={0.4}>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Email Volume</CardTitle>
+                  <CardDescription>Recent email activity</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <EmailVolumeAreaChart data={inboxes[0]?.emails_by_day?.map((d: any) => ({date: d.day, count: d.count})) || [{date: "N/A", count: 0}]} />
+                </CardContent>
+              </AnimatedCard>
+              <AnimatedCard delay={0.5}>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Engagement</CardTitle>
+                  <CardDescription>Response rate and time</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ResponseRateGauge rate={inboxes[0]?.response_rate || 0} avgTime={inboxes[0]?.avg_response_time || 0} />
+                </CardContent>
+              </AnimatedCard>
+            </motion.div>
+            {/* --- END NEW CHARTS SECTION --- */}
           <motion.div variants={item} className="p-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold tracking-tight">Connected Inboxes</h2>
+              <h2 className="text-xl font-bold tracking-tight">Connected Inboxes - Quick Overview</h2>
               <AnimatedButton gradient size="sm">
                 <Plus className="mr-2 h-4 w-4" /> Add Inbox
               </AnimatedButton>
             </div>
             
             {/* Inbox Navigation Feature */}
+            {/* Quick Inbox Overview Cards */}
+            {!loading && !error && inboxes && inboxes.length > 0 && (
+              <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-4">
+                {inboxes.map((inbox: Inbox, index: number) => (
+                  <InboxOverviewCard 
+                    key={inbox.id} 
+                    name={inbox.name || inbox.email}
+                    unread={inbox.unread_count || 0}
+                    total={inbox.total_count || 0}
+                  />
+                ))}
+              </motion.div>
+            )}
             <div className="mt-4 border rounded-lg p-4 bg-card">
               <button 
                 onClick={() => setInboxesExpanded(!inboxesExpanded)}
                 className="flex items-center gap-2 p-2 w-full text-left hover:bg-accent rounded-md"
               >
                 {inboxesExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                <Inbox className="h-5 w-5" />
+                <InboxIcon className="h-5 w-5" />
                 <span>Inboxes</span>
               </button>
               
               {inboxesExpanded && (
                 <div className="ml-6 mt-1 space-y-1">
-                  {mockInboxStats.map(inbox => (
-                    <Link
-                      key={inbox.id}
-                      href={`/inbox/${inbox.id}`}
-                      className={`block p-2 rounded-md text-sm ${
-                        pathname === `/inbox/${inbox.id}` 
-                          ? 'bg-primary/10 text-primary' 
-                          : 'hover:bg-accent'
-                      }`}
-                    >
-                      - {inbox.name}
-                    </Link>
-                  ))}
+                  {loading ? (
+                    <div className="flex items-center justify-center p-4">
+                      <LoadingSpinner size="sm" />
+                    </div>
+                  ) : error ? (
+                    <p className="text-sm text-destructive p-2">Failed to load inboxes</p>
+                  ) : inboxes && inboxes.length > 0 ? (
+                    inboxes.map((inbox: Inbox) => (
+                      <Link
+                        key={inbox.id}
+                        href={`/inbox/${inbox.id}`}
+                        className={`block p-2 rounded-md text-sm ${
+                          pathname === `/inbox/${inbox.id}` 
+                            ? 'bg-primary/10 text-primary' 
+                            : 'hover:bg-accent'
+                        }`}
+                      >
+                        - {inbox.name || inbox.email}
+                      </Link>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground p-2">No inboxes found</p>
+                  )}
                 </div>
               )}
             </div>
           </motion.div>
 
           <motion.div variants={item} className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 p-6">
-            {mockInboxStats.map((inbox, index) => (
-              <AnimatedCard key={inbox.id} delay={0.1 * (index + 1)} className="hover-card">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{inbox.name}</CardTitle>
-                    <ToggleSwitch
-                      checked={true}
-                      onCheckedChange={() =>
-                        setActiveInboxes((prev) => (prev === mockInboxStats.length ? prev - 1 : mockInboxStats.length))
-                      }
-                    />
-                  </div>
-                  <CardDescription>{inbox.email}</CardDescription>
-                </CardHeader>
-                <CardContent className="grid gap-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2">
-                      <Inbox className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{inbox.totalEmails} emails</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-primary" />
-                      <span className="text-sm">Auto-reply on</span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{inbox.avgResponseTime}m response</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">{inbox.meetingsScheduled} meetings</span>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Link href={`/inbox/stats/${inbox.id}`} className="w-full">
-                    <AnimatedButton variant="outline" size="sm" className="w-full">
-                      View Stats <BarChart3 className="ml-2 h-4 w-4" />
+            {loading ? (
+              <div className="col-span-3 flex justify-center items-center py-12">
+                <LoadingSpinner size="lg" />
+              </div>
+            ) : error ? (
+              <div className="col-span-3">
+                <Card className="border-destructive">
+                  <CardContent className="p-6 text-center">
+                    <p className="text-destructive mb-4">Failed to load inboxes. Please try again.</p>
+                    <AnimatedButton variant="outline" onClick={() => refetch()}>
+                      Retry
                     </AnimatedButton>
-                  </Link>
-                </CardFooter>
-              </AnimatedCard>
-            ))}
+                  </CardContent>
+                </Card>
+              </div>
+            ) : inboxes && inboxes.length > 0 ? (
+              inboxes.map((inbox: Inbox, index: number) => (
+                <AnimatedCard key={inbox.id} delay={0.1 * (index + 1)} className="hover-card">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">{inbox.name || 'Unnamed Inbox'}</CardTitle>
+                      <ToggleSwitch
+                        checked={inbox.status === 'active'}
+                        onCheckedChange={() => console.log(`Toggle inbox ${inbox.id} status`)}
+                      />
+                    </div>
+                    <CardDescription>{inbox.email}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex items-center gap-2">
+                        <InboxIcon className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{inbox.total_count || 0} emails</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">{inbox.unread_count || 0} unread</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Status: {inbox.status || 'unknown'}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Last sync: {new Date(inbox.last_synced_at || Date.now()).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="flex justify-between">
+                    <Link href={`/inbox/${inbox.id}`}>
+                      <AnimatedButton variant="outline" size="sm">
+                        <Mail className="mr-2 h-4 w-4" /> View Inbox
+                      </AnimatedButton>
+                    </Link>
+                    <Link href={`/analytics?inbox=${inbox.id}`}>
+                      <AnimatedButton variant="outline" size="sm">
+                        <BarChart3 className="mr-2 h-4 w-4" /> View Stats
+                      </AnimatedButton>
+                    </Link>
+                  </CardFooter>
+                </AnimatedCard>
+              ))
+            ) : (
+              <div className="col-span-3">
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <Mail className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-lg font-medium">No inboxes found</p>
+                    <p className="text-muted-foreground mb-4">Connect your first email inbox to get started</p>
+                    <AnimatedButton gradient>
+                      <Plus className="mr-2 h-4 w-4" /> Connect Inbox
+                    </AnimatedButton>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </motion.div>
 
+          {/* --- BEGIN NEW TABLES/CHARTS SECTION --- */}
+          {!loading && !error && inboxes && inboxes.length > 0 && (
+            <motion.div variants={item} className="grid gap-4 md:grid-cols-2 p-6">
+              <AnimatedCard delay={0.6}>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Top Contacts</CardTitle>
+                  <CardDescription>Most frequent interactions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <TopContactsTable contacts={inboxes[0]?.top_contacts || []} />
+                </CardContent>
+              </AnimatedCard>
+              <AnimatedCard delay={0.7}>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Email Categories</CardTitle>
+                  <CardDescription>Distribution of email types</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <CategoryDonutChart data={inboxes[0]?.categories || []} />
+                </CardContent>
+              </AnimatedCard>
+            </motion.div>
+          )}
+          {/* --- END NEW TABLES/CHARTS SECTION --- */}
+
           {/* Email Bison Import Section */}
+          
           <motion.div variants={item} className="p-6">
             <h2 className="text-xl font-bold tracking-tight mb-4">Email Bison Integration</h2>
             <Suspense fallback={<div className="w-full flex justify-center p-12"><LoadingSpinner size="lg" /></div>}>
@@ -229,7 +362,7 @@ export default function DashboardPage() {
                   <div className="flex-1">
                     <h3 className="font-medium">Connect Gmail</h3>
                     <p className="text-sm text-muted-foreground">
-                      Connected {mockInboxStats.length} of {mockInboxStats.length + 1} accounts
+                      Connected {inboxes.length} of {inboxes.length + 1} accounts
                     </p>
                   </div>
                   <AnimatedButton variant="ghost" size="sm">
@@ -242,7 +375,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex-1">
                     <h3 className="font-medium">Connect Calendar</h3>
-                    <p className="text-sm text-muted-foreground">Connected {mockInboxStats.length} calendars</p>
+                    <p className="text-sm text-muted-foreground">Connected {inboxes.length} calendars</p>
                   </div>
                   <AnimatedButton variant="ghost" size="sm">
                     Add More
@@ -263,6 +396,8 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </motion.div>
+          </>
+          )}
         </TabsContent>
 
         {/* Settings Tab Content */}
@@ -298,21 +433,21 @@ export default function DashboardPage() {
                         <p className="font-medium">Email Notifications</p>
                         <p className="text-sm text-muted-foreground">Receive notifications when new emails arrive</p>
                       </div>
-                      <ToggleSwitch checked={true} />
+                      <ToggleSwitch checked={true} onCheckedChange={() => {}} />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">Weekly Reports</p>
                         <p className="text-sm text-muted-foreground">Receive weekly email summary reports</p>
                       </div>
-                      <ToggleSwitch checked={true} />
+                      <ToggleSwitch checked={true} onCheckedChange={() => {}} />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">Meeting Reminders</p>
                         <p className="text-sm text-muted-foreground">Get reminders before scheduled meetings</p>
                       </div>
-                      <ToggleSwitch checked={true} />
+                      <ToggleSwitch checked={true} onCheckedChange={() => {}} />
                     </div>
                   </div>
                 </div>
@@ -343,21 +478,21 @@ export default function DashboardPage() {
                         <p className="font-medium">Auto-Reply</p>
                         <p className="text-sm text-muted-foreground">Automatically generate replies to incoming emails</p>
                       </div>
-                      <ToggleSwitch checked={true} />
+                      <ToggleSwitch checked={true} onCheckedChange={() => {}} />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">Smart Suggestions</p>
                         <p className="text-sm text-muted-foreground">Show AI-generated reply suggestions</p>
                       </div>
-                      <ToggleSwitch checked={true} />
+                      <ToggleSwitch checked={true} onCheckedChange={() => {}} />
                     </div>
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">Follow-up Reminders</p>
                         <p className="text-sm text-muted-foreground">Suggest follow-ups for unanswered emails</p>
                       </div>
-                      <ToggleSwitch checked={true} />
+                      <ToggleSwitch checked={true} onCheckedChange={() => {}} />
                     </div>
                   </div>
                 </div>
@@ -372,7 +507,7 @@ export default function DashboardPage() {
                         <p className="font-medium">Dynamic Memory System</p>
                         <p className="text-sm text-muted-foreground">Use past replies to improve future responses</p>
                       </div>
-                      <ToggleSwitch checked={true} />
+                      <ToggleSwitch checked={true} onCheckedChange={() => {}} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="memory-size">Memory Size</Label>

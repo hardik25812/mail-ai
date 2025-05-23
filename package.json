@@ -31,9 +31,11 @@
     "commander": "^13.1.0",
     "dotenv": "^16.5.0",
     "next": "^15.3.1",
+    "ngrok": "^5.0.0-beta.2",
     "node-cache": "^5.1.2",
     "node-fetch": "^2.7.0",
     "prisma": "^6.6.0",
+    "sonner": "^2.0.3",
     "uuid": "^11.1.0"
   },
   "devDependencies": {
