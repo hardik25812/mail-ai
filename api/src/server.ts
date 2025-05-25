@@ -26,6 +26,7 @@ import workspaceRoutes from './routes/workspaces';
 import analyticsRoutes from './routes/analytics';
 import campaignsRoutes from './routes/campaigns';
 import emailAccountsRoutes from './routes/email-accounts';
+import emailBisonWebhookRoutes from './routes/email-bison-webhook';
 
 // Check for required environment variables
 if (!process.env.BISON_API_KEY) {
@@ -71,6 +72,9 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/email-accounts', emailAccountsRoutes);
 
+// Webhook routes
+app.use('/webhook/email-bison', emailBisonWebhookRoutes);
+
 // Root API endpoint for basic information
 app.get('/api', (req: Request, res: Response) => {
   res.json({
@@ -81,7 +85,8 @@ app.get('/api', (req: Request, res: Response) => {
       '/api/workspaces',
       '/api/analytics',
       '/api/campaigns',
-      '/api/email-accounts'
+      '/api/email-accounts',
+      '/webhook/email-bison'
     ],
     status: 'running',
     documentation: 'Access specific endpoints for Email Bison data',
@@ -92,6 +97,25 @@ app.get('/api', (req: Request, res: Response) => {
 // Health check route
 app.get('/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', uptime: process.uptime() });
+});
+
+// Simple test endpoint for webhook verification
+app.all('/test-webhook', (req: Request, res: Response) => {
+  console.log('====== TEST WEBHOOK REQUEST RECEIVED ======');
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Body:', JSON.stringify(req.body, null, 2));
+  console.log('Query:', JSON.stringify(req.query, null, 2));
+  console.log('==========================================');
+  
+  res.json({ 
+    success: true, 
+    message: 'Test webhook received successfully', 
+    receivedAt: new Date().toISOString(),
+    method: req.method,
+    headers: req.headers,
+    body: req.body,
+    query: req.query
+  });
 });
 
 // Start server

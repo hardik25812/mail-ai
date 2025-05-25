@@ -11,7 +11,9 @@ import {
   Settings,
   ChevronDown,
   ChevronRight,
-  Mail
+  Mail,
+  Webhook,
+  Activity
 } from 'lucide-react'
 
 interface Inbox {
@@ -92,6 +94,18 @@ export function SidebarNavigation({ inboxes = [] }: { inboxes?: Inbox[] }) {
         >
           <BarChart2 className="h-5 w-5" />
           <span>Analytics</span>
+        </Link>
+        
+        <Link 
+          href="/webhook-monitor" 
+          className={`flex items-center gap-2 p-2 rounded-md ${
+            pathname === '/webhook-monitor' 
+              ? 'bg-primary/10 text-primary' 
+              : 'hover:bg-accent'
+          }`}
+        >
+          <Activity className="h-5 w-5" />
+          <span>Webhook Monitor</span>
         </Link>
         
         <Link 
